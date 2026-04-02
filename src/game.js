@@ -178,21 +178,27 @@ export class TetrisGame {
 
   ensureSpawnSpace() {
     let attempts = 0;
+    const requiredRows = Math.max(4, this.currentPiece.shape.length + 1);
 
     while (this.collides(this.currentPiece) && attempts < this.config.rows) {
-      const highestOccupiedRow = this.board.findIndex((row) => row.some(Boolean));
+      const blockedRow = this.board
+        .slice(0, requiredRows)
+        .findIndex((row) => row.some(Boolean));
+      const rowToRemove = blockedRow === -1 ? this.board.findIndex((row) => row.some(Boolean)) : blockedRow;
 
-      if (highestOccupiedRow === -1) {
+      if (rowToRemove === -1) {
         break;
       }
 
-      this.board.splice(highestOccupiedRow, 1);
+      this.board.splice(rowToRemove, 1);
       this.board.unshift(Array(this.config.cols).fill(null));
       attempts += 1;
     }
 
     if (this.collides(this.currentPiece)) {
-      this.board = createMatrix(this.config.rows, this.config.cols);
+      for (let row = 0; row < requiredRows; row += 1) {
+        this.board[row] = Array(this.config.cols).fill(null);
+      }
     }
   }
 

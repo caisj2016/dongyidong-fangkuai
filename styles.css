@@ -472,11 +472,48 @@ body[data-layout="desktop"] .game-layout {
 
 body[data-layout="desktop"] .calibration-layout {
   grid-template-columns: minmax(420px, 1.25fr) minmax(320px, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
 body[data-layout="desktop"] .camera-slot {
   aspect-ratio: 4 / 3;
   min-height: 0;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .wide-panel {
+  padding: 14px 18px 16px;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] h2 {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .step-badge {
+  margin-top: 12px;
+  padding: 12px 18px;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] #calibration-camera-slot {
+  max-height: min(58vh, 520px);
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .instruction-card {
+  padding: 16px 18px;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .status-row {
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .actions {
+  margin-top: 14px;
+}
+
+body[data-layout="desktop"] [data-screen="calibration"] .large-button {
+  min-height: 56px;
 }
 
 body[data-layout="desktop"] .game-camera-slot {
@@ -499,7 +536,7 @@ body[data-layout="mobile"] .app-shell {
 }
 
 body[data-layout="mobile"] .screen-root {
-  padding: 8px;
+  padding: 6px;
   overflow: hidden;
 }
 
@@ -508,7 +545,7 @@ body[data-layout="mobile"] .screen {
 }
 
 body[data-layout="mobile"] .panel {
-  padding: 10px;
+  padding: 8px;
 }
 
 body[data-layout="mobile"] .hero-panel {
@@ -600,6 +637,10 @@ body[data-layout="mobile"] [data-screen="game"] .game-layout {
   height: 100%;
 }
 
+body[data-layout="mobile"] [data-screen="game"] {
+  overflow: hidden;
+}
+
 body[data-layout="mobile"] .calibration-layout {
   grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
   gap: 8px;
@@ -647,7 +688,7 @@ body[data-layout="mobile"] .game-layout {
   grid-template-areas:
     "info"
     "board";
-  gap: 6px;
+  gap: 4px;
   margin-top: 0;
 }
 
@@ -655,18 +696,18 @@ body[data-layout="mobile"] .info-panel {
   grid-area: info;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 6px;
+  gap: 4px;
+  padding: 4px;
 }
 
 body[data-layout="mobile"] .camera-panel {
   position: absolute;
-  right: 8px;
-  bottom: 12px;
+  right: 6px;
+  bottom: 8px;
   z-index: 4;
-  width: min(24vw, 96px);
-  min-width: 82px;
-  padding: 6px;
+  width: min(22vw, 84px);
+  min-width: 72px;
+  padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(10, 24, 44, 0.84);
   backdrop-filter: blur(6px);
@@ -674,15 +715,16 @@ body[data-layout="mobile"] .camera-panel {
 
 body[data-layout="mobile"] .board-panel {
   grid-area: board;
-  padding: 6px;
+  padding: 4px;
   min-height: 0;
   justify-content: center;
+  overflow: hidden;
 }
 
 body[data-layout="mobile"] .camera-panel h2,
 body[data-layout="mobile"] .board-panel h2 {
-  font-size: 0.88rem;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
 }
 
 body[data-layout="mobile"] .camera-panel h2 {
@@ -699,18 +741,18 @@ body[data-layout="mobile"] .game-camera-slot {
 }
 
 body[data-layout="mobile"] .metric-card span {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   line-height: 1.15;
 }
 
 body[data-layout="mobile"] .metric-card strong {
-  margin-top: 2px;
-  font-size: 1rem;
+  margin-top: 1px;
+  font-size: 0.92rem;
 }
 
 body[data-layout="mobile"] .metric-card {
-  padding: 8px 6px;
-  border-radius: 14px;
+  padding: 6px 5px;
+  border-radius: 12px;
   min-width: 0;
 }
 
@@ -748,8 +790,8 @@ body[data-layout="mobile"] #calibration-camera-slot .camera-stage canvas {
 body[data-layout="mobile"] #game-canvas {
   width: auto;
   height: 100%;
-  max-height: 100%;
-  max-width: min(100%, 300px);
+  max-height: calc(100dvh - 150px);
+  max-width: min(100%, 280px);
   margin: 0 auto;
 }
 

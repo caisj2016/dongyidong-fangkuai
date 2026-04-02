@@ -54,7 +54,10 @@ const game = new TetrisGame(document.getElementById("game-canvas"), {
 const mobileLayoutQuery = window.matchMedia("(max-width: 768px), (orientation: portrait)");
 
 function syncLayoutMode() {
-  document.body.dataset.layout = mobileLayoutQuery.matches ? "mobile" : "desktop";
+  const layoutMode = mobileLayoutQuery.matches ? "mobile" : "desktop";
+  document.body.dataset.layout = layoutMode;
+  calibration.setLayoutMode(layoutMode);
+  motionMapper.setLayoutMode(layoutMode);
   if (appState.cameraReady) {
     poseDetector.refreshLayout();
   }
@@ -152,7 +155,7 @@ function scheduleCalibrationAdvance(state) {
     }
 
     ui.updateCalibrationStep(calibration.goToNextStep());
-  }, 700);
+  }, 180);
 }
 
 function startInstructionCountdown() {

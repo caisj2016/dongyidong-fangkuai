@@ -1,4 +1,4 @@
-import { CALIBRATION_STEPS, MOTION_CONFIG } from "./config.js";
+import { MOTION_CONFIG } from "./config.js";
 
 function average(values) {
   if (!values.length) return 0;
@@ -9,9 +9,40 @@ function getPoint(landmarks, index) {
   return landmarks[index] || { x: 0, y: 0, visibility: 0 };
 }
 
+function getCalibrationSteps(layoutMode) {
+  return [
+    {
+      key: "baseline",
+      text: "站在画面中间保持不动",
+      tip: "头和肩膀保持自然放松，系统会记录你的基础姿势。",
+    },
+    {
+      key: "headLeft",
+      text: "头部向左侧偏一次",
+      tip: "像活动颈椎一样，把头明显偏向屏幕左侧，再回到中间。",
+    },
+    {
+      key: "headRight",
+      text: "头部向右侧偏一次",
+      tip: "像活动颈椎一样，把头明显偏向屏幕右侧，再回到中间。",
+    },
+    {
+      key: "headDown",
+      text: "低头一次",
+      tip: "像放松颈椎一样轻轻低头，游戏里会用来快速下降。",
+    },
+    {
+      key: "headUp",
+      text: "抬头一次",
+      tip: "把下巴轻轻抬起一点，游戏里会用来变形旋转。",
+    },
+  ];
+}
+
 export function getPoseMetrics(landmarks) {
   if (!landmarks || !landmarks.length) return null;
 
+  const nose = getPoint(landmarks, 0);
   const leftShoulder = getPoint(landmarks, 11);
   const rightShoulder = getPoint(landmarks, 12);
   const leftHip = getPoint(landmarks, 23);
@@ -25,14 +56,14 @@ export function getPoseMetrics(landmarks) {
   const hipCenterX = average([leftHip.x, rightHip.x]);
   const shoulderCenterY = average([leftShoulder.y, rightShoulder.y]);
   const hipCenterY = average([leftHip.y, rightHip.y]);
-  const torsoHeight = Math.max(0.05, hipCenterY - shoulderCenterY);
 
   return {
+    noseX: nose.x,
+    noseY: nose.y,
     shoulderCenterX,
     hipCenterX,
     shoulderCenterY,
     hipCenterY,
-    torsoHeight,
     leftWristY: leftWrist.y,
     rightWristY: rightWrist.y,
     leftElbowY: leftElbow.y,
@@ -43,7 +74,19 @@ export function getPoseMetrics(landmarks) {
 }
 
 export function getLeanDelta(metrics) {
-  return (metrics.shoulderCenterX - metrics.hipCenterX) / metrics.torsoHeight;
+  const displayShoulderCenterX = 1 - metrics.shoulderCenterX;
+  const displayHipCenterX = 1 - metrics.hipCenterX;
+  return displayShoulderCenterX - displayHipCenterX;
+}
+
+export function getHeadOffset(metrics) {
+  const displayNoseX = 1 - metrics.noseX;
+  const displayShoulderCenterX = 1 - metrics.shoulderCenterX;
+  return displayNoseX - displayShoulderCenterX;
+}
+
+export function getHeadVerticalOffset(metrics) {
+  return metrics.noseY - metrics.shoulderCenterY;
 }
 
 export function isSingleHandRaised(side, metrics, offset) {
@@ -71,7 +114,16 @@ export function isHandsRaised(metrics, offset) {
 
 export class CalibrationController {
   constructor() {
-    this.steps = CALIBRATION_STEPS;
+    this.layoutMode = "desktop";
+    this.steps = getCalibrationSteps(this.layoutMode);
+    this.reset();
+  }
+
+  setLayoutMode(layoutMode) {
+    const nextMode = layoutMode === "mobile" ? "mobile" : "desktop";
+    if (nextMode === this.layoutMode) return;
+    this.layoutMode = nextMode;
+    this.steps = getCalibrationSteps(this.layoutMode);
     this.reset();
   }
 
@@ -99,6 +151,10 @@ export class CalibrationController {
   }
 
   processLandmarks(landmarks) {
+    if (this.stepRecognized) {
+      return this.getState();
+    }
+
     const metrics = getPoseMetrics(landmarks);
     if (!metrics) {
       this.samples = [];
@@ -127,22 +183,20 @@ export class CalibrationController {
       return;
     }
 
-    const hips = this.samples.map((item) => item.hipCenterY);
     const shoulders = this.samples.map((item) => item.shoulderCenterY);
-    const leanValues = this.samples.map((item) => getLeanDelta(item));
-    const hipRange = Math.max(...hips) - Math.min(...hips);
+    const headOffsets = this.samples.map((item) => getHeadOffset(item));
     const shoulderRange = Math.max(...shoulders) - Math.min(...shoulders);
-    const leanRange = Math.max(...leanValues) - Math.min(...leanValues);
+    const headRange = Math.max(...headOffsets) - Math.min(...headOffsets);
 
     if (
-      hipRange < MOTION_CONFIG.thresholds.baselineStill &&
       shoulderRange < MOTION_CONFIG.thresholds.baselineStill &&
-      leanRange < MOTION_CONFIG.neutralZone
+      headRange < MOTION_CONFIG.neutralZone
     ) {
       this.baseline = {
+        noseY: average(this.samples.map((item) => item.noseY)),
         shoulderCenterY: average(shoulders),
-        hipCenterY: average(hips),
-        torsoHeight: average(this.samples.map((item) => item.torsoHeight)),
+        headOffset: average(headOffsets),
+        headVerticalOffset: average(this.samples.map((item) => getHeadVerticalOffset(item))),
       };
       this.stepRecognized = true;
     } else {
@@ -152,16 +206,23 @@ export class CalibrationController {
 
   evaluateStep(step, metrics) {
     this.samples.push(metrics);
-    if (this.samples.length > 8) {
+    const maxSamples =
+      step === "headLeft" ||
+      step === "headRight" ||
+      step === "headDown" ||
+      step === "headUp"
+        ? 3
+        : 8;
+    if (this.samples.length > maxSamples) {
       this.samples.shift();
     }
 
     const smoothed = {
+      noseX: average(this.samples.map((item) => item.noseX)),
+      noseY: average(this.samples.map((item) => item.noseY)),
       shoulderCenterX: average(this.samples.map((item) => item.shoulderCenterX)),
       hipCenterX: average(this.samples.map((item) => item.hipCenterX)),
       shoulderCenterY: average(this.samples.map((item) => item.shoulderCenterY)),
-      hipCenterY: average(this.samples.map((item) => item.hipCenterY)),
-      torsoHeight: average(this.samples.map((item) => item.torsoHeight)),
       leftWristY: average(this.samples.map((item) => item.leftWristY)),
       rightWristY: average(this.samples.map((item) => item.rightWristY)),
       leftElbowY: average(this.samples.map((item) => item.leftElbowY)),
@@ -170,28 +231,45 @@ export class CalibrationController {
       rightShoulderY: average(this.samples.map((item) => item.rightShoulderY)),
     };
 
-    const lean = getLeanDelta(smoothed);
+    const headOffset = getHeadOffset(smoothed) - (this.baseline?.headOffset || 0);
 
-    if (step === "leanLeft") {
-      this.stepRecognized = lean < -MOTION_CONFIG.thresholds.lean;
+    if (step === "headLeft") {
+      this.stepRecognized = headOffset < -MOTION_CONFIG.thresholds.headOffset;
       return;
     }
 
-    if (step === "leanRight") {
-      this.stepRecognized = lean > MOTION_CONFIG.thresholds.lean;
+    if (step === "headRight") {
+      this.stepRecognized = headOffset > MOTION_CONFIG.thresholds.headOffset;
       return;
     }
 
-    if (step === "squat") {
-      const squatDelta =
-        (smoothed.shoulderCenterY - this.baseline.shoulderCenterY) / this.baseline.torsoHeight;
-      this.stepRecognized = squatDelta > MOTION_CONFIG.thresholds.squat;
+    const headVerticalOffset =
+      getHeadVerticalOffset(smoothed) - (this.baseline.headVerticalOffset || 0);
+    const headDownDelta = headVerticalOffset;
+    const headUpDelta = -headVerticalOffset;
+    const shoulderDropDelta = smoothed.shoulderCenterY - this.baseline.shoulderCenterY;
+    const firstSample = this.samples[0];
+    const lastSample = this.samples[this.samples.length - 1];
+    const noseDropTrend = firstSample && lastSample ? lastSample.noseY - firstSample.noseY : 0;
+    const shoulderDropTrend =
+      firstSample && lastSample ? lastSample.shoulderCenterY - firstSample.shoulderCenterY : 0;
+
+    if (step === "headDown") {
+      this.stepRecognized =
+        headDownDelta > MOTION_CONFIG.thresholds.headDown ||
+        shoulderDropDelta > MOTION_CONFIG.thresholds.headDown * 0.8 ||
+        noseDropTrend > MOTION_CONFIG.thresholds.headDown * 0.75 ||
+        shoulderDropTrend > MOTION_CONFIG.thresholds.headDown * 0.5 ||
+        smoothed.noseY > smoothed.leftShoulderY - 0.01 ||
+        smoothed.noseY > smoothed.rightShoulderY - 0.01;
       return;
     }
 
-    if (step === "handsUp") {
-      this.stepRecognized = isHandsRaised(smoothed, MOTION_CONFIG.thresholds.handsUpOffset);
+    if (step === "headUp") {
+      this.stepRecognized = headUpDelta > MOTION_CONFIG.thresholds.headUp;
+      return;
     }
+
   }
 
   goToNextStep() {

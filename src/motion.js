@@ -1,5 +1,11 @@
 import { MOTION_CONFIG } from "./config.js";
-import { getLeanDelta, getPoseMetrics, isHandsRaised } from "./calibration.js";
+import {
+  getHeadOffset,
+  getHeadVerticalOffset,
+  getLeanDelta,
+  getPoseMetrics,
+  isHandsRaised,
+} from "./calibration.js";
 
 function average(values) {
   if (!values.length) return 0;
@@ -9,7 +15,12 @@ function average(values) {
 export class MotionMapper {
   constructor() {
     this.config = MOTION_CONFIG;
+    this.layoutMode = "desktop";
     this.reset();
+  }
+
+  setLayoutMode(layoutMode) {
+    this.layoutMode = layoutMode === "mobile" ? "mobile" : "desktop";
   }
 
   reset() {
@@ -19,7 +30,7 @@ export class MotionMapper {
     this.moveState = "neutral";
     this.rotateHoldStartedAt = 0;
     this.rotateArmed = true;
-    this.squatHoldStartedAt = 0;
+    this.dropHoldStartedAt = 0;
     this.currentAction = "无动作";
   }
 
@@ -30,7 +41,7 @@ export class MotionMapper {
     this.moveState = "neutral";
     this.rotateHoldStartedAt = 0;
     this.rotateArmed = true;
-    this.squatHoldStartedAt = 0;
+    this.dropHoldStartedAt = 0;
     this.currentAction = "无动作";
   }
 
@@ -46,7 +57,7 @@ export class MotionMapper {
       this.moveState = "neutral";
       this.rotateHoldStartedAt = 0;
       this.rotateArmed = true;
-      this.squatHoldStartedAt = 0;
+      this.dropHoldStartedAt = 0;
       this.currentAction = "无动作";
       return { action: null, softDrop: false, currentAction: this.currentAction };
     }
@@ -57,11 +68,11 @@ export class MotionMapper {
     }
 
     const smoothed = {
+      noseX: average(this.history.map((item) => item.noseX)),
+      noseY: average(this.history.map((item) => item.noseY)),
       shoulderCenterX: average(this.history.map((item) => item.shoulderCenterX)),
       hipCenterX: average(this.history.map((item) => item.hipCenterX)),
       shoulderCenterY: average(this.history.map((item) => item.shoulderCenterY)),
-      hipCenterY: average(this.history.map((item) => item.hipCenterY)),
-      torsoHeight: average(this.history.map((item) => item.torsoHeight)),
       leftWristY: average(this.history.map((item) => item.leftWristY)),
       rightWristY: average(this.history.map((item) => item.rightWristY)),
       leftElbowY: average(this.history.map((item) => item.leftElbowY)),
@@ -70,31 +81,49 @@ export class MotionMapper {
       rightShoulderY: average(this.history.map((item) => item.rightShoulderY)),
     };
 
-    const lean = getLeanDelta(smoothed);
+    const lateralOffset = getHeadOffset(smoothed) - (this.baseline.headOffset || 0);
+    const moveThreshold = this.config.thresholds.headOffset;
+    const rearmThreshold = Math.max(this.config.neutralZone, moveThreshold * 0.45);
+
     let action = null;
 
-    if (Math.abs(lean) < this.config.neutralZone) {
+    if (Math.abs(lateralOffset) < rearmThreshold) {
       this.moveState = "neutral";
-    } else if (
-      lean > this.config.thresholds.lean &&
-      this.moveState === "neutral" &&
-      now >= this.cooldowns.right
-    ) {
+    }
+
+    if (lateralOffset > moveThreshold && now >= this.cooldowns.right) {
       action = "right";
       this.moveState = "right";
       this.cooldowns.right = now + this.config.cooldowns.right;
-    } else if (
-      lean < -this.config.thresholds.lean &&
-      this.moveState === "neutral" &&
-      now >= this.cooldowns.left
-    ) {
+    } else if (lateralOffset < -moveThreshold && now >= this.cooldowns.left) {
       action = "left";
       this.moveState = "left";
       this.cooldowns.left = now + this.config.cooldowns.left;
     }
 
-    const bothHandsUp = isHandsRaised(smoothed, this.config.thresholds.handsUpOffset);
-    if (bothHandsUp) {
+    let softDrop = false;
+
+    const headVerticalOffset =
+      getHeadVerticalOffset(smoothed) - (this.baseline.headVerticalOffset || 0);
+    const headDownDelta = headVerticalOffset;
+    const headUpDelta = -headVerticalOffset;
+    const headDownActive = headDownDelta > this.config.thresholds.headDown;
+    const headUpActive = headUpDelta > this.config.thresholds.headUp;
+
+    if (headDownActive) {
+      if (!this.dropHoldStartedAt) {
+        this.dropHoldStartedAt = now;
+      }
+    } else {
+      this.dropHoldStartedAt = 0;
+    }
+
+    softDrop =
+      headDownActive &&
+      this.dropHoldStartedAt > 0 &&
+      now - this.dropHoldStartedAt >= this.config.holds.squat;
+
+    if (headUpActive) {
       if (!this.rotateHoldStartedAt) {
         this.rotateHoldStartedAt = now;
       }
@@ -105,7 +134,7 @@ export class MotionMapper {
 
     if (
       !action &&
-      bothHandsUp &&
+      headUpActive &&
       this.rotateArmed &&
       now >= this.cooldowns.rotate &&
       now - this.rotateHoldStartedAt >= this.config.holds.rotate
@@ -115,26 +144,12 @@ export class MotionMapper {
       this.cooldowns.rotate = now + this.config.cooldowns.rotate;
     }
 
-    const squatDelta =
-      (smoothed.shoulderCenterY - this.baseline.shoulderCenterY) / this.baseline.torsoHeight;
-    if (squatDelta > this.config.thresholds.squat) {
-      if (!this.squatHoldStartedAt) {
-        this.squatHoldStartedAt = now;
-      }
-    } else {
-      this.squatHoldStartedAt = 0;
-    }
-
-    const softDrop =
-      this.squatHoldStartedAt > 0 &&
-      now - this.squatHoldStartedAt >= this.config.holds.squat;
-
     if (action) {
       this.currentAction = this.label(action);
     } else if (softDrop) {
-      this.currentAction = "下蹲";
-    } else if (Math.abs(lean) >= this.config.thresholds.lean) {
-      this.currentAction = lean > 0 ? "右倾" : "左倾";
+      this.currentAction = "低头快降";
+    } else if (Math.abs(lateralOffset) >= moveThreshold) {
+      this.currentAction = lateralOffset > 0 ? "向右偏头" : "向左偏头";
     } else {
       this.currentAction = "无动作";
     }
