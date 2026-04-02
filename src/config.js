@@ -55,6 +55,7 @@ export const MOTION_CONFIG = {
     squat: 0.045,
     handsUpOffset: 0.04,
     singleHandOffset: 0.005,
+    waveRiseDelta: 0.012,
     baselineStill: 0.03,
   },
 };

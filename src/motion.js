@@ -1,5 +1,10 @@
 import { MOTION_CONFIG } from "./config.js";
-import { getPoseMetrics, isHandsRaised, isSingleHandRaised } from "./calibration.js";
+import {
+  getPoseMetrics,
+  getScreenSideHands,
+  isHandsRaised,
+  isScreenSideHandRaised,
+} from "./calibration.js";
 
 function average(values) {
   if (!values.length) return 0;
@@ -17,8 +22,8 @@ export class MotionMapper {
     this.history = [];
     this.confirmCounts = { left: 0, right: 0, squat: 0, rotate: 0 };
     this.cooldowns = { left: 0, right: 0, rotate: 0 };
-    this.raisedState = { left: false, right: false, both: false };
     this.rearmState = { left: true, right: true, rotate: true };
+    this.lastSmoothed = null;
     this.currentAction = "无动作";
   }
 
@@ -27,8 +32,8 @@ export class MotionMapper {
     this.history = [];
     this.confirmCounts = { left: 0, right: 0, squat: 0, rotate: 0 };
     this.cooldowns = { left: 0, right: 0, rotate: 0 };
-    this.raisedState = { left: false, right: false, both: false };
     this.rearmState = { left: true, right: true, rotate: true };
+    this.lastSmoothed = null;
     this.currentAction = "无动作";
   }
 
@@ -41,8 +46,8 @@ export class MotionMapper {
     const metrics = getPoseMetrics(landmarks);
     if (!metrics) {
       this.currentAction = "无动作";
-      this.raisedState = { left: false, right: false, both: false };
       this.rearmState = { left: true, right: true, rotate: true };
+      this.lastSmoothed = null;
       return { action: null, softDrop: false, currentAction: this.currentAction };
     }
 
@@ -53,16 +58,22 @@ export class MotionMapper {
 
     const smoothed = {
       hipCenterY: average(this.history.map((item) => item.hipCenterY)),
+      leftWristX: average(this.history.map((item) => item.leftWristX)),
+      rightWristX: average(this.history.map((item) => item.rightWristX)),
       leftWristY: average(this.history.map((item) => item.leftWristY)),
       rightWristY: average(this.history.map((item) => item.rightWristY)),
+      leftElbowX: average(this.history.map((item) => item.leftElbowX)),
+      rightElbowX: average(this.history.map((item) => item.rightElbowX)),
       leftElbowY: average(this.history.map((item) => item.leftElbowY)),
       rightElbowY: average(this.history.map((item) => item.rightElbowY)),
+      leftShoulderX: average(this.history.map((item) => item.leftShoulderX)),
+      rightShoulderX: average(this.history.map((item) => item.rightShoulderX)),
       leftShoulderY: average(this.history.map((item) => item.leftShoulderY)),
       rightShoulderY: average(this.history.map((item) => item.rightShoulderY)),
     };
 
-    const leftRaised = isSingleHandRaised("left", smoothed, this.config.thresholds.singleHandOffset);
-    const rightRaised = isSingleHandRaised(
+    const leftRaised = isScreenSideHandRaised("left", smoothed, this.config.thresholds.singleHandOffset);
+    const rightRaised = isScreenSideHandRaised(
       "right",
       smoothed,
       this.config.thresholds.singleHandOffset
@@ -70,16 +81,18 @@ export class MotionMapper {
     const bothRaised = isHandsRaised(smoothed, this.config.thresholds.handsUpOffset);
     const squatDelta = (smoothed.hipCenterY - this.baseline.hipCenterY) / this.baseline.torsoHeight;
 
-    const dominantLeft =
-      smoothed.leftWristY <= smoothed.rightWristY - this.config.thresholds.singleHandOffset / 3;
-    const dominantRight =
-      smoothed.rightWristY <= smoothed.leftWristY - this.config.thresholds.singleHandOffset / 3;
+    const last = this.lastSmoothed || smoothed;
+    const currentScreenHands = getScreenSideHands(smoothed);
+    const lastScreenHands = getScreenSideHands(last);
+    const leftRise = lastScreenHands.left.wristY - currentScreenHands.left.wristY;
+    const rightRise = lastScreenHands.right.wristY - currentScreenHands.right.wristY;
 
     const leftLowered =
-      smoothed.leftWristY > smoothed.leftShoulderY + this.config.thresholds.singleHandOffset * 0.5;
+      currentScreenHands.left.wristY >
+      currentScreenHands.left.shoulderY + this.config.thresholds.singleHandOffset * 2;
     const rightLowered =
-      smoothed.rightWristY > smoothed.rightShoulderY + this.config.thresholds.singleHandOffset * 0.5;
-    const bothLowered = leftLowered && rightLowered;
+      currentScreenHands.right.wristY >
+      currentScreenHands.right.shoulderY + this.config.thresholds.singleHandOffset * 2;
 
     if (leftLowered) {
       this.rearmState.left = true;
@@ -87,24 +100,26 @@ export class MotionMapper {
     if (rightLowered) {
       this.rearmState.right = true;
     }
-    if (bothLowered) {
+    if (leftLowered && rightLowered) {
       this.rearmState.rotate = true;
     }
 
-    const leftEdge =
+    const leftWaveDetected =
       leftRaised &&
       !bothRaised &&
-      (dominantLeft || !rightRaised || this.raisedState.right) &&
-      this.rearmState.left;
-    const rightEdge =
+      this.rearmState.left &&
+      leftRise > this.config.thresholds.waveRiseDelta &&
+      leftRise >= rightRise;
+    const rightWaveDetected =
       rightRaised &&
       !bothRaised &&
-      (dominantRight || !leftRaised || this.raisedState.left) &&
-      this.rearmState.right;
+      this.rearmState.right &&
+      rightRise > this.config.thresholds.waveRiseDelta &&
+      rightRise >= leftRise;
     const rotateDetected = bothRaised && this.rearmState.rotate;
 
-    this.updateConfirm("left", leftEdge);
-    this.updateConfirm("right", rightEdge);
+    this.updateConfirm("left", leftWaveDetected);
+    this.updateConfirm("right", rightWaveDetected);
     this.updateConfirm("rotate", rotateDetected);
     this.updateConfirm("squat", squatDelta > this.config.thresholds.squat);
 
@@ -126,11 +141,7 @@ export class MotionMapper {
       this.currentAction = "无动作";
     }
 
-    this.raisedState = {
-      left: leftRaised,
-      right: rightRaised,
-      both: bothRaised,
-    };
+    this.lastSmoothed = smoothed;
 
     return {
       action: singleAction,

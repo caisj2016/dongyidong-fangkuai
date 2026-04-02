@@ -29,14 +29,54 @@ export function getPoseMetrics(landmarks) {
     shoulderCenterY,
     hipCenterY,
     torsoHeight,
+    leftShoulderX: leftShoulder.x,
+    rightShoulderX: rightShoulder.x,
     leftWristY: leftWrist.y,
     rightWristY: rightWrist.y,
+    leftWristX: leftWrist.x,
+    rightWristX: rightWrist.x,
     leftElbowY: leftElbow.y,
     rightElbowY: rightElbow.y,
+    leftElbowX: leftElbow.x,
+    rightElbowX: rightElbow.x,
     leftShoulderY: leftShoulder.y,
     rightShoulderY: rightShoulder.y,
     leftHipY: leftHip.y,
     rightHipY: rightHip.y,
+  };
+}
+
+export function getScreenSideHands(metrics) {
+  const leftDisplayX = 1 - metrics.leftWristX;
+  const rightDisplayX = 1 - metrics.rightWristX;
+  const leftIsScreenRight = leftDisplayX >= rightDisplayX;
+
+  if (leftIsScreenRight) {
+    return {
+      left: {
+        wristY: metrics.rightWristY,
+        elbowY: metrics.rightElbowY,
+        shoulderY: metrics.rightShoulderY,
+      },
+      right: {
+        wristY: metrics.leftWristY,
+        elbowY: metrics.leftElbowY,
+        shoulderY: metrics.leftShoulderY,
+      },
+    };
+  }
+
+  return {
+    left: {
+      wristY: metrics.leftWristY,
+      elbowY: metrics.leftElbowY,
+      shoulderY: metrics.leftShoulderY,
+    },
+    right: {
+      wristY: metrics.rightWristY,
+      elbowY: metrics.rightElbowY,
+      shoulderY: metrics.rightShoulderY,
+    },
   };
 }
 
@@ -60,6 +100,16 @@ export function isHandsRaised(metrics, offset) {
   return (
     isSingleHandRaised("left", metrics, offset) &&
     isSingleHandRaised("right", metrics, offset)
+  );
+}
+
+export function isScreenSideHandRaised(side, metrics, offset) {
+  const screenHands = getScreenSideHands(metrics);
+  const hand = side === "right" ? screenHands.right : screenHands.left;
+
+  return (
+    hand.wristY < hand.shoulderY - offset ||
+    (hand.wristY < hand.shoulderY + offset && hand.elbowY < hand.shoulderY + offset * 2)
   );
 }
 
@@ -156,16 +206,22 @@ export class CalibrationController {
     const avgRightShoulderY = average(this.samples.map((item) => item.rightShoulderY));
 
     const handMetrics = {
+      leftWristX: average(this.samples.map((item) => item.leftWristX)),
+      rightWristX: average(this.samples.map((item) => item.rightWristX)),
       leftWristY: avgLeftWristY,
       rightWristY: avgRightWristY,
+      leftElbowX: average(this.samples.map((item) => item.leftElbowX)),
+      rightElbowX: average(this.samples.map((item) => item.rightElbowX)),
       leftElbowY: avgLeftElbowY,
       rightElbowY: avgRightElbowY,
+      leftShoulderX: average(this.samples.map((item) => item.leftShoulderX)),
+      rightShoulderX: average(this.samples.map((item) => item.rightShoulderX)),
       leftShoulderY: avgLeftShoulderY,
       rightShoulderY: avgRightShoulderY,
     };
 
     if (step === "leftHand") {
-      this.stepRecognized = isSingleHandRaised(
+      this.stepRecognized = isScreenSideHandRaised(
         "left",
         handMetrics,
         MOTION_CONFIG.thresholds.singleHandOffset
@@ -174,7 +230,7 @@ export class CalibrationController {
     }
 
     if (step === "rightHand") {
-      this.stepRecognized = isSingleHandRaised(
+      this.stepRecognized = isScreenSideHandRaised(
         "right",
         handMetrics,
         MOTION_CONFIG.thresholds.singleHandOffset
