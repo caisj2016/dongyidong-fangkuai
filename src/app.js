@@ -18,6 +18,7 @@ const appState = {
   score: 0,
   countdownTimer: null,
   calibrationAdvanceTimer: null,
+  calibrationAdvanceStepKey: null,
   pendingStartAfterCamera: false,
   keyboardActionTimer: null,
 };
@@ -131,6 +132,7 @@ function clearCalibrationAdvanceTimer() {
     window.clearTimeout(appState.calibrationAdvanceTimer);
     appState.calibrationAdvanceTimer = null;
   }
+  appState.calibrationAdvanceStepKey = null;
 }
 
 function scheduleCalibrationAdvance(state) {
@@ -139,13 +141,24 @@ function scheduleCalibrationAdvance(state) {
     return;
   }
 
-  if (appState.calibrationAdvanceTimer) {
+  const stepKey = `${state.index}:${state.text}`;
+  if (appState.calibrationAdvanceTimer && appState.calibrationAdvanceStepKey === stepKey) {
     return;
   }
 
+  clearCalibrationAdvanceTimer();
+  appState.calibrationAdvanceStepKey = stepKey;
+  const advanceDelay = document.body.dataset.layout === "mobile" ? 80 : 160;
+
   appState.calibrationAdvanceTimer = window.setTimeout(() => {
     appState.calibrationAdvanceTimer = null;
+    appState.calibrationAdvanceStepKey = null;
     if (appState.currentScreen !== "calibration") {
+      return;
+    }
+
+    const latestState = calibration.getState();
+    if (!latestState.recognized || latestState.index !== state.index) {
       return;
     }
 
@@ -155,7 +168,7 @@ function scheduleCalibrationAdvance(state) {
     }
 
     ui.updateCalibrationStep(calibration.goToNextStep());
-  }, 180);
+  }, advanceDelay);
 }
 
 function startInstructionCountdown() {
