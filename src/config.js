@@ -14,48 +14,47 @@ export const CALIBRATION_STEPS = [
   {
     key: "baseline",
     text: "站在画面中间保持不动",
-    tip: "保持稳定约 2 秒，系统会记录你的基准姿势。",
+    tip: "请正对镜头站稳 2 秒，系统会记录你的基础站姿。",
   },
   {
-    key: "leftHand",
-    text: "左手快速上举一次",
-    tip: "左手抬到肩膀上方，动作明显一些。",
+    key: "leanLeft",
+    text: "身体明显向左倾一次",
+    tip: "肩膀整体向屏幕左侧倾斜一下，再回到中间。",
   },
   {
-    key: "rightHand",
-    text: "右手快速上举一次",
-    tip: "右手抬到肩膀上方，动作明显一些。",
+    key: "leanRight",
+    text: "身体明显向右倾一次",
+    tip: "肩膀整体向屏幕右侧倾斜一下，再回到中间。",
   },
   {
     key: "squat",
-    text: "做一次下蹲",
-    tip: "身体重心明显下降即可，不需要蹲得很深。",
+    text: "下蹲一次",
+    tip: "做一个明显下蹲动作并保持一下，用来验证加速下落。",
   },
   {
     key: "handsUp",
     text: "双手举起",
-    tip: "双手同时举过肩膀并保持约 1 秒。",
+    tip: "双手同时举过肩膀并保持一下，用来验证旋转动作。",
   },
 ];
 
 export const MOTION_CONFIG = {
   smoothingWindow: 3,
-  confirmFrames: {
-    left: 1,
-    right: 1,
-    squat: 2,
-    rotate: 2,
-  },
+  neutralZone: 0.04,
   cooldowns: {
-    left: 420,
-    right: 420,
-    rotate: 900,
+    left: 220,
+    right: 220,
+    rotate: 400,
+  },
+  holds: {
+    rotate: 120,
+    squat: 120,
   },
   thresholds: {
-    squat: 0.045,
+    lean: 0.1,
+    squat: 0.12,
     handsUpOffset: 0.04,
-    singleHandOffset: 0.005,
-    waveRiseDelta: 0.012,
+    singleHandOffset: 0.05,
     baselineStill: 0.03,
   },
 };

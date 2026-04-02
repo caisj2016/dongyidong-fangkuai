@@ -489,48 +489,57 @@ body[data-layout="desktop"] .camera-stage canvas {
 }
 
 body[data-layout="mobile"] {
-  overflow: auto;
+  overflow: hidden;
 }
 
 body[data-layout="mobile"] .app-shell {
-  height: auto;
+  height: 100dvh;
   min-height: 100dvh;
-  overflow: visible;
+  overflow: hidden;
 }
 
 body[data-layout="mobile"] .screen-root {
-  padding: 10px;
-  overflow: visible;
+  padding: 8px;
+  overflow: hidden;
 }
 
 body[data-layout="mobile"] .screen {
-  height: auto;
+  height: 100%;
 }
 
 body[data-layout="mobile"] .panel {
-  padding: 14px;
+  padding: 10px;
 }
 
 body[data-layout="mobile"] .hero-panel {
   max-width: 100%;
-  margin: 8px auto;
+  margin: 0 auto;
 }
 
 body[data-layout="mobile"] .wide-panel {
-  height: auto;
+  height: 100%;
 }
 
 body[data-layout="mobile"] h2 {
-  font-size: 1.55rem;
+  font-size: 1.35rem;
+  line-height: 1.15;
 }
 
 body[data-layout="mobile"] h3 {
-  font-size: 1.35rem;
+  font-size: 1.08rem;
+  line-height: 1.25;
 }
 
 body[data-layout="mobile"] .eyebrow {
-  font-size: 0.95rem;
-  margin-bottom: 8px;
+  display: none;
+}
+
+body[data-layout="mobile"] .top-bar {
+  padding: 10px 16px;
+}
+
+body[data-layout="mobile"] .top-bar h1 {
+  font-size: 1.2rem;
 }
 
 body[data-layout="mobile"] .lead,
@@ -539,98 +548,215 @@ body[data-layout="mobile"] .instruction-list p,
 body[data-layout="mobile"] .status-row,
 body[data-layout="mobile"] .score-chip span,
 body[data-layout="mobile"] .result-row span {
-  font-size: 0.92rem;
-  line-height: 1.35;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+body[data-layout="mobile"] .lead {
+  margin-top: 8px;
 }
 
 body[data-layout="mobile"] .score-chip,
 body[data-layout="mobile"] .step-badge,
 body[data-layout="mobile"] .countdown-box,
 body[data-layout="mobile"] .success-banner {
-  padding: 10px 14px;
-  margin-top: 10px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  gap: 10px;
+}
+
+body[data-layout="mobile"] .score-chip strong {
+  font-size: 1.35rem;
 }
 
 body[data-layout="mobile"] .actions {
-  gap: 10px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 body[data-layout="mobile"] .large-button {
   width: 100%;
   min-width: 0;
-  min-height: 52px;
-  font-size: 1rem;
+  min-height: 46px;
+  font-size: 0.95rem;
 }
 
-body[data-layout="mobile"] .calibration-layout,
-body[data-layout="mobile"] .game-layout {
-  grid-template-columns: 1fr;
-  gap: 12px;
-  margin-top: 12px;
-  height: auto;
+body[data-layout="mobile"] [data-screen="start"] .hero-panel,
+body[data-layout="mobile"] [data-screen="instructions"] .hero-panel,
+body[data-layout="mobile"] [data-screen="result"] .hero-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-body[data-layout="mobile"] .camera-panel {
-  order: 1;
+body[data-layout="mobile"] [data-screen="calibration"],
+body[data-layout="mobile"] [data-screen="game"] {
+  height: 100%;
 }
 
-body[data-layout="mobile"] .board-panel {
-  order: 2;
+body[data-layout="mobile"] [data-screen="calibration"] .wide-panel,
+body[data-layout="mobile"] [data-screen="game"] .game-layout {
+  height: 100%;
 }
 
-body[data-layout="mobile"] .info-panel {
-  order: 3;
+body[data-layout="mobile"] .calibration-layout {
+  grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
   gap: 8px;
+  margin-top: 8px;
+  height: calc(100% - 42px);
 }
 
+body[data-layout="mobile"] .camera-column,
 body[data-layout="mobile"] .instruction-column {
-  order: 2;
+  min-height: 0;
 }
 
-body[data-layout="mobile"] .camera-column {
-  order: 1;
+body[data-layout="mobile"] .instruction-card {
+  padding: 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+body[data-layout="mobile"] .instruction-label {
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+}
+
+body[data-layout="mobile"] .status-row {
+  margin-top: 10px;
+  padding-top: 10px;
 }
 
 body[data-layout="mobile"] .camera-slot {
   min-height: 0;
-  aspect-ratio: 3 / 4;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+body[data-layout="mobile"] #calibration-camera-slot {
+  max-height: 40dvh;
+}
+
+body[data-layout="mobile"] .game-layout {
+  position: relative;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "info"
+    "board";
+  gap: 6px;
+  margin-top: 0;
+}
+
+body[data-layout="mobile"] .info-panel {
+  grid-area: info;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+}
+
+body[data-layout="mobile"] .camera-panel {
+  position: absolute;
+  right: 8px;
+  bottom: 12px;
+  z-index: 4;
+  width: min(24vw, 96px);
+  min-width: 82px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 24, 44, 0.84);
+  backdrop-filter: blur(6px);
+}
+
+body[data-layout="mobile"] .board-panel {
+  grid-area: board;
+  padding: 6px;
+  min-height: 0;
+  justify-content: center;
+}
+
+body[data-layout="mobile"] .camera-panel h2,
+body[data-layout="mobile"] .board-panel h2 {
+  font-size: 0.88rem;
+  margin-bottom: 4px;
+}
+
+body[data-layout="mobile"] .camera-panel h2 {
+  display: none;
 }
 
 body[data-layout="mobile"] .game-camera-slot {
+  width: 100%;
   height: auto;
   max-height: none;
+  aspect-ratio: 3 / 4;
+  border-width: 2px;
+  border-radius: 14px;
 }
 
-body[data-layout="mobile"] .camera-stage video,
-body[data-layout="mobile"] .camera-stage canvas {
+body[data-layout="mobile"] .metric-card span {
+  font-size: 0.72rem;
+  line-height: 1.15;
+}
+
+body[data-layout="mobile"] .metric-card strong {
+  margin-top: 2px;
+  font-size: 1rem;
+}
+
+body[data-layout="mobile"] .metric-card {
+  padding: 8px 6px;
+  border-radius: 14px;
+  min-width: 0;
+}
+
+body[data-layout="mobile"] .accent-card {
+  grid-column: span 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+body[data-layout="mobile"] .accent-card strong {
+  font-size: 1rem;
+  margin-top: 0;
+}
+
+body[data-layout="mobile"] .instruction-mini {
+  display: none;
+}
+
+body[data-layout="mobile"] .game-camera-slot .camera-stage video,
+body[data-layout="mobile"] .game-camera-slot .camera-stage canvas {
+  object-fit: cover;
+}
+
+body[data-layout="mobile"] .camera-panel .camera-stage video,
+body[data-layout="mobile"] .camera-panel .camera-stage canvas {
+  border-radius: 10px;
+}
+
+body[data-layout="mobile"] #calibration-camera-slot .camera-stage video,
+body[data-layout="mobile"] #calibration-camera-slot .camera-stage canvas {
   object-fit: contain;
 }
 
 body[data-layout="mobile"] #game-canvas {
-  max-width: min(100%, 320px);
-}
-
-body[data-layout="mobile"] .metric-card {
-  padding: 10px 12px;
-}
-
-body[data-layout="mobile"] .metric-card span {
-  font-size: 0.85rem;
-}
-
-body[data-layout="mobile"] .metric-card strong {
-  font-size: 1.3rem;
-}
-
-body[data-layout="mobile"] .instruction-mini {
-  margin-top: 0;
+  width: auto;
+  height: 100%;
+  max-height: 100%;
+  max-width: min(100%, 300px);
+  margin: 0 auto;
 }
 
 body[data-layout="mobile"] .countdown-box strong {
-  font-size: 2.5rem;
+  font-size: 2rem;
 }
 
 body[data-layout="mobile"] .big-result strong {
-  font-size: 2.2rem;
+  font-size: 2rem;
 }

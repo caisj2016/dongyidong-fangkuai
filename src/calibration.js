@@ -21,63 +21,29 @@ export function getPoseMetrics(landmarks) {
   const leftElbow = getPoint(landmarks, 13);
   const rightElbow = getPoint(landmarks, 14);
 
+  const shoulderCenterX = average([leftShoulder.x, rightShoulder.x]);
+  const hipCenterX = average([leftHip.x, rightHip.x]);
   const shoulderCenterY = average([leftShoulder.y, rightShoulder.y]);
   const hipCenterY = average([leftHip.y, rightHip.y]);
   const torsoHeight = Math.max(0.05, hipCenterY - shoulderCenterY);
 
   return {
+    shoulderCenterX,
+    hipCenterX,
     shoulderCenterY,
     hipCenterY,
     torsoHeight,
-    leftShoulderX: leftShoulder.x,
-    rightShoulderX: rightShoulder.x,
     leftWristY: leftWrist.y,
     rightWristY: rightWrist.y,
-    leftWristX: leftWrist.x,
-    rightWristX: rightWrist.x,
     leftElbowY: leftElbow.y,
     rightElbowY: rightElbow.y,
-    leftElbowX: leftElbow.x,
-    rightElbowX: rightElbow.x,
     leftShoulderY: leftShoulder.y,
     rightShoulderY: rightShoulder.y,
-    leftHipY: leftHip.y,
-    rightHipY: rightHip.y,
   };
 }
 
-export function getScreenSideHands(metrics) {
-  const leftDisplayX = 1 - metrics.leftWristX;
-  const rightDisplayX = 1 - metrics.rightWristX;
-  const leftIsScreenRight = leftDisplayX >= rightDisplayX;
-
-  if (leftIsScreenRight) {
-    return {
-      left: {
-        wristY: metrics.rightWristY,
-        elbowY: metrics.rightElbowY,
-        shoulderY: metrics.rightShoulderY,
-      },
-      right: {
-        wristY: metrics.leftWristY,
-        elbowY: metrics.leftElbowY,
-        shoulderY: metrics.leftShoulderY,
-      },
-    };
-  }
-
-  return {
-    left: {
-      wristY: metrics.leftWristY,
-      elbowY: metrics.leftElbowY,
-      shoulderY: metrics.leftShoulderY,
-    },
-    right: {
-      wristY: metrics.rightWristY,
-      elbowY: metrics.rightElbowY,
-      shoulderY: metrics.rightShoulderY,
-    },
-  };
+export function getLeanDelta(metrics) {
+  return (metrics.shoulderCenterX - metrics.hipCenterX) / metrics.torsoHeight;
 }
 
 export function isSingleHandRaised(side, metrics, offset) {
@@ -85,14 +51,14 @@ export function isSingleHandRaised(side, metrics, offset) {
     return (
       metrics.leftWristY < metrics.leftShoulderY - offset ||
       (metrics.leftWristY < metrics.leftShoulderY + offset &&
-        metrics.leftElbowY < metrics.leftShoulderY + offset * 2)
+        metrics.leftElbowY < metrics.leftShoulderY + offset * 1.5)
     );
   }
 
   return (
     metrics.rightWristY < metrics.rightShoulderY - offset ||
     (metrics.rightWristY < metrics.rightShoulderY + offset &&
-      metrics.rightElbowY < metrics.rightShoulderY + offset * 2)
+      metrics.rightElbowY < metrics.rightShoulderY + offset * 1.5)
   );
 }
 
@@ -100,16 +66,6 @@ export function isHandsRaised(metrics, offset) {
   return (
     isSingleHandRaised("left", metrics, offset) &&
     isSingleHandRaised("right", metrics, offset)
-  );
-}
-
-export function isScreenSideHandRaised(side, metrics, offset) {
-  const screenHands = getScreenSideHands(metrics);
-  const hand = side === "right" ? screenHands.right : screenHands.left;
-
-  return (
-    hand.wristY < hand.shoulderY - offset ||
-    (hand.wristY < hand.shoulderY + offset && hand.elbowY < hand.shoulderY + offset * 2)
   );
 }
 
@@ -173,16 +129,19 @@ export class CalibrationController {
 
     const hips = this.samples.map((item) => item.hipCenterY);
     const shoulders = this.samples.map((item) => item.shoulderCenterY);
+    const leanValues = this.samples.map((item) => getLeanDelta(item));
     const hipRange = Math.max(...hips) - Math.min(...hips);
     const shoulderRange = Math.max(...shoulders) - Math.min(...shoulders);
+    const leanRange = Math.max(...leanValues) - Math.min(...leanValues);
 
     if (
       hipRange < MOTION_CONFIG.thresholds.baselineStill &&
-      shoulderRange < MOTION_CONFIG.thresholds.baselineStill
+      shoulderRange < MOTION_CONFIG.thresholds.baselineStill &&
+      leanRange < MOTION_CONFIG.neutralZone
     ) {
       this.baseline = {
-        hipCenterY: average(hips),
         shoulderCenterY: average(shoulders),
+        hipCenterY: average(hips),
         torsoHeight: average(this.samples.map((item) => item.torsoHeight)),
       };
       this.stepRecognized = true;
@@ -197,55 +156,41 @@ export class CalibrationController {
       this.samples.shift();
     }
 
-    const avgHipY = average(this.samples.map((item) => item.hipCenterY));
-    const avgLeftWristY = average(this.samples.map((item) => item.leftWristY));
-    const avgRightWristY = average(this.samples.map((item) => item.rightWristY));
-    const avgLeftElbowY = average(this.samples.map((item) => item.leftElbowY));
-    const avgRightElbowY = average(this.samples.map((item) => item.rightElbowY));
-    const avgLeftShoulderY = average(this.samples.map((item) => item.leftShoulderY));
-    const avgRightShoulderY = average(this.samples.map((item) => item.rightShoulderY));
-
-    const handMetrics = {
-      leftWristX: average(this.samples.map((item) => item.leftWristX)),
-      rightWristX: average(this.samples.map((item) => item.rightWristX)),
-      leftWristY: avgLeftWristY,
-      rightWristY: avgRightWristY,
-      leftElbowX: average(this.samples.map((item) => item.leftElbowX)),
-      rightElbowX: average(this.samples.map((item) => item.rightElbowX)),
-      leftElbowY: avgLeftElbowY,
-      rightElbowY: avgRightElbowY,
-      leftShoulderX: average(this.samples.map((item) => item.leftShoulderX)),
-      rightShoulderX: average(this.samples.map((item) => item.rightShoulderX)),
-      leftShoulderY: avgLeftShoulderY,
-      rightShoulderY: avgRightShoulderY,
+    const smoothed = {
+      shoulderCenterX: average(this.samples.map((item) => item.shoulderCenterX)),
+      hipCenterX: average(this.samples.map((item) => item.hipCenterX)),
+      shoulderCenterY: average(this.samples.map((item) => item.shoulderCenterY)),
+      hipCenterY: average(this.samples.map((item) => item.hipCenterY)),
+      torsoHeight: average(this.samples.map((item) => item.torsoHeight)),
+      leftWristY: average(this.samples.map((item) => item.leftWristY)),
+      rightWristY: average(this.samples.map((item) => item.rightWristY)),
+      leftElbowY: average(this.samples.map((item) => item.leftElbowY)),
+      rightElbowY: average(this.samples.map((item) => item.rightElbowY)),
+      leftShoulderY: average(this.samples.map((item) => item.leftShoulderY)),
+      rightShoulderY: average(this.samples.map((item) => item.rightShoulderY)),
     };
 
-    if (step === "leftHand") {
-      this.stepRecognized = isScreenSideHandRaised(
-        "left",
-        handMetrics,
-        MOTION_CONFIG.thresholds.singleHandOffset
-      );
+    const lean = getLeanDelta(smoothed);
+
+    if (step === "leanLeft") {
+      this.stepRecognized = lean < -MOTION_CONFIG.thresholds.lean;
       return;
     }
 
-    if (step === "rightHand") {
-      this.stepRecognized = isScreenSideHandRaised(
-        "right",
-        handMetrics,
-        MOTION_CONFIG.thresholds.singleHandOffset
-      );
+    if (step === "leanRight") {
+      this.stepRecognized = lean > MOTION_CONFIG.thresholds.lean;
       return;
     }
 
     if (step === "squat") {
-      const squatDelta = (avgHipY - this.baseline.hipCenterY) / this.baseline.torsoHeight;
+      const squatDelta =
+        (smoothed.shoulderCenterY - this.baseline.shoulderCenterY) / this.baseline.torsoHeight;
       this.stepRecognized = squatDelta > MOTION_CONFIG.thresholds.squat;
       return;
     }
 
     if (step === "handsUp") {
-      this.stepRecognized = isHandsRaised(handMetrics, MOTION_CONFIG.thresholds.handsUpOffset);
+      this.stepRecognized = isHandsRaised(smoothed, MOTION_CONFIG.thresholds.handsUpOffset);
     }
   }
 

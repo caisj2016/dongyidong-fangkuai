@@ -1,10 +1,5 @@
 import { MOTION_CONFIG } from "./config.js";
-import {
-  getPoseMetrics,
-  getScreenSideHands,
-  isHandsRaised,
-  isScreenSideHandRaised,
-} from "./calibration.js";
+import { getLeanDelta, getPoseMetrics, isHandsRaised } from "./calibration.js";
 
 function average(values) {
   if (!values.length) return 0;
@@ -20,20 +15,22 @@ export class MotionMapper {
   reset() {
     this.baseline = null;
     this.history = [];
-    this.confirmCounts = { left: 0, right: 0, squat: 0, rotate: 0 };
     this.cooldowns = { left: 0, right: 0, rotate: 0 };
-    this.rearmState = { left: true, right: true, rotate: true };
-    this.lastSmoothed = null;
+    this.moveState = "neutral";
+    this.rotateHoldStartedAt = 0;
+    this.rotateArmed = true;
+    this.squatHoldStartedAt = 0;
     this.currentAction = "无动作";
   }
 
   setBaseline(baseline) {
     this.baseline = baseline;
     this.history = [];
-    this.confirmCounts = { left: 0, right: 0, squat: 0, rotate: 0 };
     this.cooldowns = { left: 0, right: 0, rotate: 0 };
-    this.rearmState = { left: true, right: true, rotate: true };
-    this.lastSmoothed = null;
+    this.moveState = "neutral";
+    this.rotateHoldStartedAt = 0;
+    this.rotateArmed = true;
+    this.squatHoldStartedAt = 0;
     this.currentAction = "无动作";
   }
 
@@ -45,9 +42,12 @@ export class MotionMapper {
 
     const metrics = getPoseMetrics(landmarks);
     if (!metrics) {
+      this.history = [];
+      this.moveState = "neutral";
+      this.rotateHoldStartedAt = 0;
+      this.rotateArmed = true;
+      this.squatHoldStartedAt = 0;
       this.currentAction = "无动作";
-      this.rearmState = { left: true, right: true, rotate: true };
-      this.lastSmoothed = null;
       return { action: null, softDrop: false, currentAction: this.currentAction };
     }
 
@@ -57,121 +57,93 @@ export class MotionMapper {
     }
 
     const smoothed = {
+      shoulderCenterX: average(this.history.map((item) => item.shoulderCenterX)),
+      hipCenterX: average(this.history.map((item) => item.hipCenterX)),
+      shoulderCenterY: average(this.history.map((item) => item.shoulderCenterY)),
       hipCenterY: average(this.history.map((item) => item.hipCenterY)),
-      leftWristX: average(this.history.map((item) => item.leftWristX)),
-      rightWristX: average(this.history.map((item) => item.rightWristX)),
+      torsoHeight: average(this.history.map((item) => item.torsoHeight)),
       leftWristY: average(this.history.map((item) => item.leftWristY)),
       rightWristY: average(this.history.map((item) => item.rightWristY)),
-      leftElbowX: average(this.history.map((item) => item.leftElbowX)),
-      rightElbowX: average(this.history.map((item) => item.rightElbowX)),
       leftElbowY: average(this.history.map((item) => item.leftElbowY)),
       rightElbowY: average(this.history.map((item) => item.rightElbowY)),
-      leftShoulderX: average(this.history.map((item) => item.leftShoulderX)),
-      rightShoulderX: average(this.history.map((item) => item.rightShoulderX)),
       leftShoulderY: average(this.history.map((item) => item.leftShoulderY)),
       rightShoulderY: average(this.history.map((item) => item.rightShoulderY)),
     };
 
-    const leftRaised = isScreenSideHandRaised("left", smoothed, this.config.thresholds.singleHandOffset);
-    const rightRaised = isScreenSideHandRaised(
-      "right",
-      smoothed,
-      this.config.thresholds.singleHandOffset
-    );
-    const bothRaised = isHandsRaised(smoothed, this.config.thresholds.handsUpOffset);
-    const squatDelta = (smoothed.hipCenterY - this.baseline.hipCenterY) / this.baseline.torsoHeight;
+    const lean = getLeanDelta(smoothed);
+    let action = null;
 
-    const last = this.lastSmoothed || smoothed;
-    const currentScreenHands = getScreenSideHands(smoothed);
-    const lastScreenHands = getScreenSideHands(last);
-    const leftRise = lastScreenHands.left.wristY - currentScreenHands.left.wristY;
-    const rightRise = lastScreenHands.right.wristY - currentScreenHands.right.wristY;
-
-    const leftLowered =
-      currentScreenHands.left.wristY >
-      currentScreenHands.left.shoulderY + this.config.thresholds.singleHandOffset * 2;
-    const rightLowered =
-      currentScreenHands.right.wristY >
-      currentScreenHands.right.shoulderY + this.config.thresholds.singleHandOffset * 2;
-
-    if (leftLowered) {
-      this.rearmState.left = true;
-    }
-    if (rightLowered) {
-      this.rearmState.right = true;
-    }
-    if (leftLowered && rightLowered) {
-      this.rearmState.rotate = true;
+    if (Math.abs(lean) < this.config.neutralZone) {
+      this.moveState = "neutral";
+    } else if (
+      lean > this.config.thresholds.lean &&
+      this.moveState === "neutral" &&
+      now >= this.cooldowns.right
+    ) {
+      action = "right";
+      this.moveState = "right";
+      this.cooldowns.right = now + this.config.cooldowns.right;
+    } else if (
+      lean < -this.config.thresholds.lean &&
+      this.moveState === "neutral" &&
+      now >= this.cooldowns.left
+    ) {
+      action = "left";
+      this.moveState = "left";
+      this.cooldowns.left = now + this.config.cooldowns.left;
     }
 
-    const leftWaveDetected =
-      leftRaised &&
-      !bothRaised &&
-      this.rearmState.left &&
-      leftRise > this.config.thresholds.waveRiseDelta &&
-      leftRise >= rightRise;
-    const rightWaveDetected =
-      rightRaised &&
-      !bothRaised &&
-      this.rearmState.right &&
-      rightRise > this.config.thresholds.waveRiseDelta &&
-      rightRise >= leftRise;
-    const rotateDetected = bothRaised && this.rearmState.rotate;
-
-    this.updateConfirm("left", leftWaveDetected);
-    this.updateConfirm("right", rightWaveDetected);
-    this.updateConfirm("rotate", rotateDetected);
-    this.updateConfirm("squat", squatDelta > this.config.thresholds.squat);
-
-    const singleAction = this.consumeSingleAction(now);
-    const softDrop = this.confirmCounts.squat >= this.config.confirmFrames.squat;
-
-    if (singleAction) {
-      this.currentAction = this.label(singleAction);
-      if (singleAction === "left") {
-        this.rearmState.left = false;
-      } else if (singleAction === "right") {
-        this.rearmState.right = false;
-      } else if (singleAction === "rotate") {
-        this.rearmState.rotate = false;
+    const bothHandsUp = isHandsRaised(smoothed, this.config.thresholds.handsUpOffset);
+    if (bothHandsUp) {
+      if (!this.rotateHoldStartedAt) {
+        this.rotateHoldStartedAt = now;
       }
+    } else {
+      this.rotateHoldStartedAt = 0;
+      this.rotateArmed = true;
+    }
+
+    if (
+      !action &&
+      bothHandsUp &&
+      this.rotateArmed &&
+      now >= this.cooldowns.rotate &&
+      now - this.rotateHoldStartedAt >= this.config.holds.rotate
+    ) {
+      action = "rotate";
+      this.rotateArmed = false;
+      this.cooldowns.rotate = now + this.config.cooldowns.rotate;
+    }
+
+    const squatDelta =
+      (smoothed.shoulderCenterY - this.baseline.shoulderCenterY) / this.baseline.torsoHeight;
+    if (squatDelta > this.config.thresholds.squat) {
+      if (!this.squatHoldStartedAt) {
+        this.squatHoldStartedAt = now;
+      }
+    } else {
+      this.squatHoldStartedAt = 0;
+    }
+
+    const softDrop =
+      this.squatHoldStartedAt > 0 &&
+      now - this.squatHoldStartedAt >= this.config.holds.squat;
+
+    if (action) {
+      this.currentAction = this.label(action);
     } else if (softDrop) {
       this.currentAction = "下蹲";
+    } else if (Math.abs(lean) >= this.config.thresholds.lean) {
+      this.currentAction = lean > 0 ? "右倾" : "左倾";
     } else {
       this.currentAction = "无动作";
     }
 
-    this.lastSmoothed = smoothed;
-
     return {
-      action: singleAction,
+      action,
       softDrop,
       currentAction: this.currentAction,
     };
-  }
-
-  updateConfirm(key, detected) {
-    this.confirmCounts[key] = detected ? this.confirmCounts[key] + 1 : 0;
-  }
-
-  consumeSingleAction(now) {
-    const candidates = [
-      { key: "rotate", label: "rotate" },
-      { key: "left", label: "left" },
-      { key: "right", label: "right" },
-    ];
-
-    for (const candidate of candidates) {
-      const confirmFrame = this.config.confirmFrames[candidate.key];
-      const cooldown = this.cooldowns[candidate.key] || 0;
-      if (this.confirmCounts[candidate.key] >= confirmFrame && now >= cooldown) {
-        this.cooldowns[candidate.key] = now + this.config.cooldowns[candidate.key];
-        this.confirmCounts[candidate.key] = 0;
-        return candidate.label;
-      }
-    }
-
-    return null;
   }
 
   label(action) {

@@ -173,12 +173,26 @@ export class TetrisGame {
     this.currentPiece = randomPiece(this.config.cols);
     this.lastDropAt = this.lastTimestamp;
 
-    if (this.collides(this.currentPiece)) {
-      for (let row = 0; row < 4; row += 1) {
-        this.board[row] = Array(this.config.cols).fill(null);
+    this.ensureSpawnSpace();
+  }
+
+  ensureSpawnSpace() {
+    let attempts = 0;
+
+    while (this.collides(this.currentPiece) && attempts < this.config.rows) {
+      const highestOccupiedRow = this.board.findIndex((row) => row.some(Boolean));
+
+      if (highestOccupiedRow === -1) {
+        break;
       }
-      this.currentPiece = randomPiece(this.config.cols);
-      this.lastDropAt = this.lastTimestamp;
+
+      this.board.splice(highestOccupiedRow, 1);
+      this.board.unshift(Array(this.config.cols).fill(null));
+      attempts += 1;
+    }
+
+    if (this.collides(this.currentPiece)) {
+      this.board = createMatrix(this.config.rows, this.config.cols);
     }
   }
 
