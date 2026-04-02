@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>动一动方块</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <h1>动一动方块</h1>
+      </header>
+
+      <main class="screen-root">
+        <section class="screen active" data-screen="start">
+          <div class="panel hero-panel">
+            <p class="eyebrow">体感方块挑战</p>
+            <h2>动起来控制方块</h2>
+            <p class="lead">打开摄像头，完成校准后用身体动作玩俄罗斯方块。</p>
+            <div class="score-chip">
+              <span>最高分</span>
+              <strong id="start-high-score">0</strong>
+            </div>
+            <div class="actions vertical-actions">
+              <button id="open-camera-btn" class="primary large-button">打开摄像头</button>
+              <button id="start-game-btn" class="primary large-button" disabled>开始游戏</button>
+            </div>
+            <p id="camera-help-text" class="help-text">请先打开摄像头，并站在画面中间。</p>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="calibration">
+          <div class="panel wide-panel">
+            <p class="eyebrow">动作校准</p>
+            <h2>按提示完成动作识别</h2>
+            <div class="step-badge" id="calibration-step-count">第 1 步 / 共 5 步</div>
+            <div class="calibration-layout">
+              <div class="camera-column">
+                <div class="camera-slot" id="calibration-camera-slot">
+                  <div class="camera-feedback hidden" id="calibration-visual-status">已识别</div>
+                </div>
+              </div>
+              <div class="instruction-column">
+                <div class="instruction-card">
+                  <p class="instruction-label">当前动作</p>
+                  <h3 id="calibration-step-text">站在画面中间保持不动</h3>
+                  <div class="status-row">
+                    <span>识别状态</span>
+                    <strong id="calibration-status">等待中</strong>
+                  </div>
+                  <p id="calibration-tip" class="help-text">
+                    请让上半身完整出现在画面中，并保持姿势稳定。
+                  </p>
+                </div>
+                <div class="actions">
+                  <button id="calibration-next-btn" class="primary large-button hidden" disabled>
+                    下一步
+                  </button>
+                  <button id="calibration-finish-btn" class="primary large-button hidden">
+                    完成校准
+                  </button>
+                  <button id="calibration-back-btn" class="secondary large-button">返回首页</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="instructions">
+          <div class="panel hero-panel">
+            <p class="eyebrow">游戏说明</p>
+            <h2>准备开始</h2>
+            <div class="instruction-list">
+              <p>向左移动身体: 方块左移</p>
+              <p>向右移动身体: 方块右移</p>
+              <p>下蹲: 方块加速下落</p>
+              <p>双手举起: 方块旋转</p>
+            </div>
+            <div class="countdown-box">
+              <span>倒计时</span>
+              <strong id="countdown-value">3</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="game">
+          <div class="game-layout">
+            <div class="panel camera-panel">
+              <h2>摄像头预览</h2>
+              <div class="camera-slot game-camera-slot" id="game-camera-slot"></div>
+            </div>
+
+            <div class="panel board-panel">
+              <h2>游戏区域</h2>
+              <canvas id="game-canvas" width="360" height="720" aria-label="游戏画布"></canvas>
+            </div>
+
+            <aside class="panel info-panel">
+              <div class="metric-card">
+                <span>当前分数</span>
+                <strong id="current-score">0</strong>
+              </div>
+              <div class="metric-card">
+                <span>最高分</span>
+                <strong id="current-high-score">0</strong>
+              </div>
+              <div class="metric-card">
+                <span>剩余时间</span>
+                <strong id="time-left">120秒</strong>
+              </div>
+              <div class="metric-card accent-card">
+                <span>当前动作</span>
+                <strong id="current-action">无动作</strong>
+              </div>
+              <div class="instruction-mini">
+                <p>动作提示</p>
+                <p>左移身体: 左移</p>
+                <p>右移身体: 右移</p>
+                <p>下蹲: 加速下落</p>
+                <p>双手举起: 旋转</p>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="result">
+          <div class="panel hero-panel">
+            <p class="eyebrow">本局结果</p>
+            <h2>游戏结束</h2>
+            <div id="result-new-high" class="success-banner hidden">恭喜刷新最高分</div>
+            <div class="result-card">
+              <div class="result-row big-result">
+                <span>本局分数</span>
+                <strong id="result-score">0</strong>
+              </div>
+              <div class="result-row">
+                <span>最高分</span>
+                <strong id="result-high-score">0</strong>
+              </div>
+            </div>
+            <div class="actions vertical-actions">
+              <button id="play-again-btn" class="primary large-button">再来一次</button>
+              <button id="back-home-btn" class="secondary large-button">返回首页</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="shared-camera-stage" class="camera-stage hidden">
+      <video id="camera-video" autoplay playsinline muted></video>
+      <canvas id="pose-overlay"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
