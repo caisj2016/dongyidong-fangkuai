@@ -637,15 +637,29 @@ body[data-layout="mobile"] [data-screen="game"] .game-layout {
   height: 100%;
 }
 
+body[data-layout="mobile"] [data-screen="calibration"] .wide-panel {
+  padding: 8px;
+}
+
+body[data-layout="mobile"] [data-screen="calibration"] h2 {
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+body[data-layout="mobile"] [data-screen="calibration"] .step-badge {
+  margin-top: 6px;
+  padding: 6px 10px;
+}
+
 body[data-layout="mobile"] [data-screen="game"] {
   overflow: hidden;
 }
 
 body[data-layout="mobile"] .calibration-layout {
-  grid-template-rows: minmax(0, 40dvh) minmax(0, 1fr);
-  gap: 8px;
-  margin-top: 8px;
-  height: calc(100% - 42px);
+  grid-template-rows: auto auto;
+  gap: 6px;
+  margin-top: 6px;
+  height: auto;
 }
 
 body[data-layout="mobile"] .camera-column,
@@ -653,32 +667,51 @@ body[data-layout="mobile"] .instruction-column {
   min-height: 0;
 }
 
+body[data-layout="mobile"] .camera-column {
+  display: block;
+}
+
 body[data-layout="mobile"] .instruction-card {
-  padding: 12px;
-  height: 100%;
+  padding: 10px;
+  height: auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
 body[data-layout="mobile"] .instruction-label {
-  margin-bottom: 8px;
-  font-size: 0.88rem;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
 }
 
 body[data-layout="mobile"] .status-row {
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 body[data-layout="mobile"] .camera-slot {
   min-height: 0;
-  height: 100%;
+  height: auto;
   aspect-ratio: auto;
 }
 
 body[data-layout="mobile"] #calibration-camera-slot {
-  max-height: 40dvh;
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  height: min(28dvh, 220px);
+  max-height: min(28dvh, 220px);
+  border-width: 2px;
+  border-radius: 16px;
+}
+
+body[data-layout="mobile"] [data-screen="calibration"] .actions {
+  margin-top: 8px;
+}
+
+body[data-layout="mobile"] [data-screen="calibration"] .large-button {
+  min-height: 42px;
+  font-size: 0.92rem;
 }
 
 body[data-layout="mobile"] .game-layout {
