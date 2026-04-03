@@ -105,9 +105,16 @@ export class MotionMapper {
 
     const headVerticalOffset =
       getHeadVerticalOffset(smoothed) - (this.baseline.headVerticalOffset || 0);
+    const isMobile = this.layoutMode === "mobile";
+    const headDownThreshold = isMobile
+      ? this.config.thresholds.headDown * 1.75
+      : this.config.thresholds.headDown;
+    const dropHoldDuration = isMobile
+      ? this.config.holds.squat + 100
+      : this.config.holds.squat;
     const headDownDelta = headVerticalOffset;
     const headUpDelta = -headVerticalOffset;
-    const headDownActive = headDownDelta > this.config.thresholds.headDown;
+    const headDownActive = headDownDelta > headDownThreshold;
     const headUpActive = headUpDelta > this.config.thresholds.headUp;
 
     if (headDownActive) {
@@ -121,7 +128,7 @@ export class MotionMapper {
     softDrop =
       headDownActive &&
       this.dropHoldStartedAt > 0 &&
-      now - this.dropHoldStartedAt >= this.config.holds.squat;
+      now - this.dropHoldStartedAt >= dropHoldDuration;
 
     if (headUpActive) {
       if (!this.rotateHoldStartedAt) {

@@ -133,6 +133,7 @@ function clearCalibrationAdvanceTimer() {
     appState.calibrationAdvanceTimer = null;
   }
   appState.calibrationAdvanceStepKey = null;
+  ui.resetCalibrationProgress();
 }
 
 function advanceCalibrationStep() {
@@ -167,11 +168,13 @@ function scheduleCalibrationAdvance(state) {
 
   clearCalibrationAdvanceTimer();
   appState.calibrationAdvanceStepKey = stepKey;
-  const advanceDelay = document.body.dataset.layout === "mobile" ? 80 : 160;
+  const advanceDelay = document.body.dataset.layout === "mobile" ? 1200 : 900;
+  ui.setCalibrationProgress(0, 0);
 
   appState.calibrationAdvanceTimer = window.setTimeout(() => {
     appState.calibrationAdvanceTimer = null;
     appState.calibrationAdvanceStepKey = null;
+    ui.resetCalibrationProgress();
     if (appState.currentScreen !== "calibration") {
       return;
     }
@@ -183,6 +186,15 @@ function scheduleCalibrationAdvance(state) {
 
     advanceCalibrationStep();
   }, advanceDelay);
+
+  requestAnimationFrame(() => {
+    if (
+      appState.currentScreen === "calibration" &&
+      appState.calibrationAdvanceStepKey === stepKey
+    ) {
+      ui.setCalibrationProgress(1, advanceDelay);
+    }
+  });
 }
 
 function startInstructionCountdown() {

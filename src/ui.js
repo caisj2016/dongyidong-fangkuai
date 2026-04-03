@@ -27,6 +27,8 @@ export class UIController {
       playAgainBtn: document.getElementById("play-again-btn"),
       backHomeBtn: document.getElementById("back-home-btn"),
       calibrationCameraSlot: document.getElementById("calibration-camera-slot"),
+      calibrationProgressRing: document.getElementById("calibration-progress-ring"),
+      calibrationProgressBar: document.getElementById("calibration-progress-bar"),
       calibrationVisualStatus: document.getElementById("calibration-visual-status"),
       gameCameraSlot: document.getElementById("game-camera-slot"),
       sharedCameraStage: document.getElementById("shared-camera-stage"),
@@ -78,6 +80,20 @@ export class UIController {
 
   setCountdown(value) {
     this.refs.countdownValue.textContent = String(value);
+  }
+
+  setCalibrationProgress(progress, durationMs = 0) {
+    const clampedProgress = Math.max(0, Math.min(1, progress));
+    const offset = 100 - clampedProgress * 100;
+    this.refs.calibrationProgressRing.classList.toggle("hidden", clampedProgress <= 0);
+    this.refs.calibrationProgressBar.style.transitionDuration = `${Math.max(durationMs, 0)}ms`;
+    this.refs.calibrationProgressBar.style.strokeDashoffset = String(offset);
+  }
+
+  resetCalibrationProgress() {
+    this.refs.calibrationProgressBar.style.transitionDuration = "0ms";
+    this.refs.calibrationProgressBar.style.strokeDashoffset = "100";
+    this.refs.calibrationProgressRing.classList.add("hidden");
   }
 
   updateGameInfo({ score, highScore, timeLeftSeconds, currentAction }) {

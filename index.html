@@ -38,6 +38,26 @@
             <div class="calibration-layout">
               <div class="camera-column">
                 <div class="camera-slot" id="calibration-camera-slot">
+                  <svg
+                    class="camera-progress hidden"
+                    id="calibration-progress-ring"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                  >
+                    <rect class="camera-progress-track" x="2" y="2" width="96" height="96" rx="12" ry="12"></rect>
+                    <rect
+                      class="camera-progress-bar"
+                      id="calibration-progress-bar"
+                      x="2"
+                      y="2"
+                      width="96"
+                      height="96"
+                      rx="12"
+                      ry="12"
+                      pathLength="100"
+                    ></rect>
+                  </svg>
                   <div class="camera-feedback hidden" id="calibration-visual-status">已识别</div>
                 </div>
               </div>

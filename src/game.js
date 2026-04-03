@@ -113,9 +113,7 @@ export class TetrisGame {
     }
 
     if (this.remainingMs <= 0) {
-      this.finished = true;
-      this.running = false;
-      this.callbacks.onGameOver?.(this.score);
+      this.finishGame();
       return;
     }
 
@@ -173,33 +171,18 @@ export class TetrisGame {
     this.currentPiece = randomPiece(this.config.cols);
     this.lastDropAt = this.lastTimestamp;
 
-    this.ensureSpawnSpace();
+    if (this.collides(this.currentPiece)) {
+      this.draw();
+      this.finishGame();
+    }
   }
 
-  ensureSpawnSpace() {
-    let attempts = 0;
-    const requiredRows = Math.max(4, this.currentPiece.shape.length + 1);
-
-    while (this.collides(this.currentPiece) && attempts < this.config.rows) {
-      const blockedRow = this.board
-        .slice(0, requiredRows)
-        .findIndex((row) => row.some(Boolean));
-      const rowToRemove = blockedRow === -1 ? this.board.findIndex((row) => row.some(Boolean)) : blockedRow;
-
-      if (rowToRemove === -1) {
-        break;
-      }
-
-      this.board.splice(rowToRemove, 1);
-      this.board.unshift(Array(this.config.cols).fill(null));
-      attempts += 1;
-    }
-
-    if (this.collides(this.currentPiece)) {
-      for (let row = 0; row < requiredRows; row += 1) {
-        this.board[row] = Array(this.config.cols).fill(null);
-      }
-    }
+  finishGame() {
+    if (this.finished) return;
+    this.finished = true;
+    this.running = false;
+    this.softDrop = false;
+    this.callbacks.onGameOver?.(this.score);
   }
 
   mergePiece() {

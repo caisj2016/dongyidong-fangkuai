@@ -251,6 +251,33 @@ h3 {
   position: relative;
 }
 
+.camera-progress {
+  position: absolute;
+  inset: -4px;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.camera-progress-track,
+.camera-progress-bar {
+  fill: none;
+  stroke-width: 4;
+}
+
+.camera-progress-track {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+.camera-progress-bar {
+  stroke: #39c16c;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  transition: stroke-dashoffset 0s linear;
+  filter: drop-shadow(0 0 8px rgba(57, 193, 108, 0.45));
+}
+
 .game-camera-slot {
   min-height: 0;
   flex: none;
