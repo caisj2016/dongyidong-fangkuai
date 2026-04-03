@@ -262,11 +262,11 @@ h3 {
 .camera-progress-track,
 .camera-progress-bar {
   fill: none;
-  stroke-width: 4;
+  stroke-width: 6;
 }
 
 .camera-progress-track {
-  stroke: rgba(255, 255, 255, 0.22);
+  stroke: rgba(57, 193, 108, 0.14);
 }
 
 .camera-progress-bar {

@@ -45,18 +45,17 @@
                     preserveAspectRatio="none"
                     aria-hidden="true"
                   >
-                    <rect class="camera-progress-track" x="2" y="2" width="96" height="96" rx="12" ry="12"></rect>
-                    <rect
+                    <path
+                      class="camera-progress-track"
+                      d="M 50 2 H 86 A 12 12 0 0 1 98 14 V 86 A 12 12 0 0 1 86 98 H 14 A 12 12 0 0 1 2 86 V 14 A 12 12 0 0 1 14 2 H 50"
+                      pathLength="100"
+                    ></path>
+                    <path
                       class="camera-progress-bar"
                       id="calibration-progress-bar"
-                      x="2"
-                      y="2"
-                      width="96"
-                      height="96"
-                      rx="12"
-                      ry="12"
+                      d="M 50 2 H 86 A 12 12 0 0 1 98 14 V 86 A 12 12 0 0 1 86 98 H 14 A 12 12 0 0 1 2 86 V 14 A 12 12 0 0 1 14 2 H 50"
                       pathLength="100"
-                    ></rect>
+                    ></path>
                   </svg>
                   <div class="camera-feedback hidden" id="calibration-visual-status">已识别</div>
                 </div>

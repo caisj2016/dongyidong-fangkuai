@@ -82,8 +82,9 @@ export class MotionMapper {
     };
 
     const lateralOffset = getHeadOffset(smoothed) - (this.baseline.headOffset || 0);
+    const isMobile = this.layoutMode === "mobile";
     const moveThreshold = this.config.thresholds.headOffset;
-    const rearmThreshold = Math.max(this.config.neutralZone, moveThreshold * 0.45);
+    const rearmThreshold = this.config.thresholds.rearmThreshold;
 
     let action = null;
 
@@ -105,12 +106,11 @@ export class MotionMapper {
 
     const headVerticalOffset =
       getHeadVerticalOffset(smoothed) - (this.baseline.headVerticalOffset || 0);
-    const isMobile = this.layoutMode === "mobile";
     const headDownThreshold = isMobile
-      ? this.config.thresholds.headDown * 1.75
+      ? this.config.thresholds.headDownMobile
       : this.config.thresholds.headDown;
     const dropHoldDuration = isMobile
-      ? this.config.holds.squat + 100
+      ? this.config.holds.squatMobile
       : this.config.holds.squat;
     const headDownDelta = headVerticalOffset;
     const headUpDelta = -headVerticalOffset;
