@@ -135,6 +135,25 @@ function clearCalibrationAdvanceTimer() {
   appState.calibrationAdvanceStepKey = null;
 }
 
+function advanceCalibrationStep() {
+  if (appState.currentScreen !== "calibration") {
+    return;
+  }
+
+  const state = calibration.getState();
+  if (!state.recognized) {
+    return;
+  }
+
+  clearCalibrationAdvanceTimer();
+  if (calibration.isComplete()) {
+    startInstructionCountdown();
+    return;
+  }
+
+  ui.updateCalibrationStep(calibration.goToNextStep());
+}
+
 function scheduleCalibrationAdvance(state) {
   if (!state.recognized) {
     clearCalibrationAdvanceTimer();
@@ -162,12 +181,7 @@ function scheduleCalibrationAdvance(state) {
       return;
     }
 
-    if (calibration.isComplete()) {
-      startInstructionCountdown();
-      return;
-    }
-
-    ui.updateCalibrationStep(calibration.goToNextStep());
+    advanceCalibrationStep();
   }, advanceDelay);
 }
 
@@ -274,6 +288,8 @@ function returnHome() {
 
 ui.refs.openCameraBtn.addEventListener("click", enableCamera);
 ui.refs.startGameBtn.addEventListener("click", beginCalibration);
+ui.refs.calibrationNextBtn.addEventListener("click", advanceCalibrationStep);
+ui.refs.calibrationFinishBtn.addEventListener("click", advanceCalibrationStep);
 ui.refs.calibrationBackBtn.addEventListener("click", returnHome);
 ui.refs.playAgainBtn.addEventListener("click", playAgain);
 ui.refs.backHomeBtn.addEventListener("click", returnHome);

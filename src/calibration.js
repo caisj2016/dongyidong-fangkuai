@@ -179,7 +179,7 @@ export class CalibrationController {
     }
 
     const isMobile = this.layoutMode === "mobile";
-    const requiredSamples = isMobile ? 10 : 20;
+    const requiredSamples = isMobile ? 6 : 20;
 
     if (this.samples.length < requiredSamples) {
       this.stepRecognized = false;
@@ -199,8 +199,17 @@ export class CalibrationController {
       ? MOTION_CONFIG.neutralZone * 1.5
       : MOTION_CONFIG.neutralZone;
     const noseStillThreshold = isMobile ? 0.05 : MOTION_CONFIG.thresholds.baselineStill;
+    const hasBodyInFrame =
+      Number.isFinite(metrics.noseX) &&
+      Number.isFinite(metrics.noseY) &&
+      Number.isFinite(metrics.shoulderCenterX) &&
+      Number.isFinite(metrics.shoulderCenterY) &&
+      metrics.noseY > 0 &&
+      metrics.noseY < 1 &&
+      metrics.shoulderCenterY > 0 &&
+      metrics.shoulderCenterY < 1;
     const isStable = isMobile
-      ? noseRange < noseStillThreshold && headRange < headStillThreshold
+      ? hasBodyInFrame
       : shoulderRange < shoulderStillThreshold && headRange < headStillThreshold;
 
     if (isStable) {

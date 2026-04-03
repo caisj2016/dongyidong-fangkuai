@@ -63,15 +63,15 @@ export class UIController {
       : "请先打开摄像头，并站在画面中间。";
   }
 
-  updateCalibrationStep({ index, total, text, tip, recognized }) {
+  updateCalibrationStep({ index, total, text, tip, recognized, isLast }) {
     this.refs.calibrationStepCount.textContent = `第 ${index + 1} 步 / 共 ${total} 步`;
     this.refs.calibrationStepText.textContent = text;
     this.refs.calibrationTip.textContent = tip;
     this.refs.calibrationStatus.textContent = recognized ? "已识别" : "等待中";
-    this.refs.calibrationNextBtn.disabled = true;
-    this.refs.calibrationFinishBtn.disabled = true;
-    this.refs.calibrationNextBtn.classList.add("hidden");
-    this.refs.calibrationFinishBtn.classList.add("hidden");
+    this.refs.calibrationNextBtn.disabled = !recognized || isLast;
+    this.refs.calibrationFinishBtn.disabled = !recognized || !isLast;
+    this.refs.calibrationNextBtn.classList.toggle("hidden", !recognized || isLast);
+    this.refs.calibrationFinishBtn.classList.toggle("hidden", !recognized || !isLast);
     this.refs.calibrationVisualStatus.classList.toggle("hidden", !recognized);
     this.refs.calibrationVisualStatus.textContent = recognized ? "动作识别成功" : "等待识别";
   }
