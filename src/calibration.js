@@ -178,22 +178,34 @@ export class CalibrationController {
       this.samples.shift();
     }
 
-    if (this.samples.length < 20) {
+    const isMobile = this.layoutMode === "mobile";
+    const requiredSamples = isMobile ? 10 : 20;
+
+    if (this.samples.length < requiredSamples) {
       this.stepRecognized = false;
       return;
     }
 
     const shoulders = this.samples.map((item) => item.shoulderCenterY);
+    const nosesY = this.samples.map((item) => item.noseY);
     const headOffsets = this.samples.map((item) => getHeadOffset(item));
     const shoulderRange = Math.max(...shoulders) - Math.min(...shoulders);
+    const noseRange = Math.max(...nosesY) - Math.min(...nosesY);
     const headRange = Math.max(...headOffsets) - Math.min(...headOffsets);
+    const shoulderStillThreshold = isMobile
+      ? MOTION_CONFIG.thresholds.baselineStill * 2
+      : MOTION_CONFIG.thresholds.baselineStill;
+    const headStillThreshold = isMobile
+      ? MOTION_CONFIG.neutralZone * 1.5
+      : MOTION_CONFIG.neutralZone;
+    const noseStillThreshold = isMobile ? 0.05 : MOTION_CONFIG.thresholds.baselineStill;
+    const isStable = isMobile
+      ? noseRange < noseStillThreshold && headRange < headStillThreshold
+      : shoulderRange < shoulderStillThreshold && headRange < headStillThreshold;
 
-    if (
-      shoulderRange < MOTION_CONFIG.thresholds.baselineStill &&
-      headRange < MOTION_CONFIG.neutralZone
-    ) {
+    if (isStable) {
       this.baseline = {
-        noseY: average(this.samples.map((item) => item.noseY)),
+        noseY: average(nosesY),
         shoulderCenterY: average(shoulders),
         headOffset: average(headOffsets),
         headVerticalOffset: average(this.samples.map((item) => getHeadVerticalOffset(item))),
