@@ -52,6 +52,8 @@ export class MotionMapper {
     this.rotateActive = false;
     this.rotateHoldStartedAt = 0;
     this.rotateNextRepeatAt = 0;
+    this.rotateLockedUntil = 0;
+    this.rotateReleaseStartedAt = 0;
 
     this.dropActive = false;
     this.dropHoldStartedAt = 0;
@@ -180,12 +182,29 @@ export class MotionMapper {
       personalizedThresholds.headThreshold,
       personalizedThresholds.faceThreshold
     );
-    const { rotateInitialDelay, rotateRepeatInterval } = this.config.repeatDelays;
+    const { rotateInitialDelay } = this.config.repeatDelays;
 
     if (!headUpActive) {
+      if (this.rotateActive) {
+        if (!this.rotateReleaseStartedAt) {
+          this.rotateReleaseStartedAt = now;
+        }
+
+        if (now - this.rotateReleaseStartedAt < 140) {
+          return null;
+        }
+      }
+
       this.rotateActive = false;
       this.rotateHoldStartedAt = 0;
       this.rotateNextRepeatAt = 0;
+      this.rotateReleaseStartedAt = 0;
+      return null;
+    }
+
+    this.rotateReleaseStartedAt = 0;
+
+    if (now < this.rotateLockedUntil) {
       return null;
     }
 
@@ -201,12 +220,7 @@ export class MotionMapper {
 
       this.rotateActive = true;
       this.rotateNextRepeatAt = now + rotateInitialDelay;
-      this.dropLockedUntil = now + this.config.lockDelays.rotateToDrop;
-      return "rotate";
-    }
-
-    if (this.rotateNextRepeatAt > 0 && now >= this.rotateNextRepeatAt) {
-      this.rotateNextRepeatAt = now + rotateRepeatInterval;
+      this.rotateLockedUntil = now + this.config.lockDelays.rotate;
       this.dropLockedUntil = now + this.config.lockDelays.rotateToDrop;
       return "rotate";
     }
@@ -228,8 +242,8 @@ export class MotionMapper {
     const facePitchDownThreshold = personalizedThresholds.faceThreshold;
     const dropHoldDuration = isMobile ? this.config.holds.squatMobile : this.config.holds.squat;
     const headDownActive =
-      facePitchDownDelta > facePitchDownThreshold ||
-      headVerticalOffset > headDownThreshold * 0.9;
+      facePitchDownDelta > facePitchDownThreshold &&
+      headVerticalOffset > headDownThreshold;
 
     if (!headDownActive || now < this.dropLockedUntil) {
       this.dropActive = false;
@@ -309,7 +323,7 @@ export class MotionMapper {
     }
 
     if (
-      facePitchDownDelta > facePitchDownThreshold ||
+      facePitchDownDelta > facePitchDownThreshold &&
       headVerticalOffset > headDownThreshold
     ) {
       return "低头蓄力";
