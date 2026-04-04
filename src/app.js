@@ -16,7 +16,6 @@ const appState = {
   cameraReady: false,
   highScore: getHighScore(),
   score: 0,
-  countdownTimer: null,
   calibrationAdvanceTimer: null,
   calibrationAdvanceStepKey: null,
   pendingStartAfterCamera: false,
@@ -199,22 +198,7 @@ function scheduleCalibrationAdvance(state) {
 
 function startInstructionCountdown() {
   showScreen("instructions");
-  let remaining = 3;
-  ui.setCountdown(remaining);
-
-  if (appState.countdownTimer) {
-    window.clearInterval(appState.countdownTimer);
-  }
-
-  appState.countdownTimer = window.setInterval(() => {
-    remaining -= 1;
-    ui.setCountdown(Math.max(remaining, 0));
-    if (remaining <= 0) {
-      window.clearInterval(appState.countdownTimer);
-      appState.countdownTimer = null;
-      startGameRound();
-    }
-  }, 1000);
+  ui.setCountdown("点击下方按钮");
 }
 
 function startGameRound() {
@@ -239,10 +223,6 @@ function gameLoop(timestamp) {
 }
 
 function finishRound(finalScore) {
-  if (appState.countdownTimer) {
-    window.clearInterval(appState.countdownTimer);
-    appState.countdownTimer = null;
-  }
   clearCalibrationAdvanceTimer();
   game.stop();
   motionMapper.reset();
@@ -265,11 +245,6 @@ function finishRound(finalScore) {
 }
 
 function playAgain() {
-  if (appState.countdownTimer) {
-    window.clearInterval(appState.countdownTimer);
-    appState.countdownTimer = null;
-  }
-
   clearCalibrationAdvanceTimer();
   motionMapper.reset();
 
@@ -284,11 +259,6 @@ function playAgain() {
 }
 
 function returnHome() {
-  if (appState.countdownTimer) {
-    window.clearInterval(appState.countdownTimer);
-    appState.countdownTimer = null;
-  }
-
   clearCalibrationAdvanceTimer();
   game.stop();
   motionMapper.reset();
@@ -303,6 +273,8 @@ ui.refs.startGameBtn.addEventListener("click", beginCalibration);
 ui.refs.calibrationNextBtn.addEventListener("click", advanceCalibrationStep);
 ui.refs.calibrationFinishBtn.addEventListener("click", advanceCalibrationStep);
 ui.refs.calibrationBackBtn.addEventListener("click", returnHome);
+ui.refs.instructionStartBtn.addEventListener("click", startGameRound);
+ui.refs.instructionBackBtn.addEventListener("click", beginCalibration);
 ui.refs.playAgainBtn.addEventListener("click", playAgain);
 ui.refs.backHomeBtn.addEventListener("click", returnHome);
 

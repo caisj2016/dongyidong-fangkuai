@@ -9,6 +9,20 @@ function getPoint(landmarks, index) {
   return landmarks[index] || { x: 0, y: 0, visibility: 0 };
 }
 
+function averageDefined(values) {
+  const validValues = values.filter((value) => Number.isFinite(value) && value > 0 && value < 1);
+  if (!validValues.length) return 0;
+  return average(validValues);
+}
+
+function getRelativeThreshold(targetDelta, fallbackThreshold, ratio = 0.55, minRatio = 0.3) {
+  if (!Number.isFinite(targetDelta) || targetDelta <= 0) {
+    return fallbackThreshold;
+  }
+
+  return Math.min(fallbackThreshold, Math.max(fallbackThreshold * minRatio, targetDelta * ratio));
+}
+
 function getCalibrationSteps(layoutMode) {
   return [
     {
@@ -43,6 +57,12 @@ export function getPoseMetrics(landmarks) {
   if (!landmarks || !landmarks.length) return null;
 
   const nose = getPoint(landmarks, 0);
+  const leftEye = getPoint(landmarks, 2);
+  const rightEye = getPoint(landmarks, 5);
+  const leftEar = getPoint(landmarks, 7);
+  const rightEar = getPoint(landmarks, 8);
+  const mouthLeft = getPoint(landmarks, 9);
+  const mouthRight = getPoint(landmarks, 10);
   const leftShoulder = getPoint(landmarks, 11);
   const rightShoulder = getPoint(landmarks, 12);
   const leftHip = getPoint(landmarks, 23);
@@ -56,10 +76,14 @@ export function getPoseMetrics(landmarks) {
   const hipCenterX = average([leftHip.x, rightHip.x]);
   const shoulderCenterY = average([leftShoulder.y, rightShoulder.y]);
   const hipCenterY = average([leftHip.y, rightHip.y]);
+  const upperFaceY = averageDefined([leftEye.y, rightEye.y, leftEar.y, rightEar.y]);
+  const mouthCenterY = averageDefined([mouthLeft.y, mouthRight.y]);
 
   return {
     noseX: nose.x,
     noseY: nose.y,
+    upperFaceY,
+    mouthCenterY,
     shoulderCenterX,
     hipCenterX,
     shoulderCenterY,
@@ -87,6 +111,101 @@ export function getHeadOffset(metrics) {
 
 export function getHeadVerticalOffset(metrics) {
   return metrics.noseY - metrics.shoulderCenterY;
+}
+
+export function getFacePitch(metrics) {
+  if (!metrics) return 0;
+
+  const upperFaceY = metrics.upperFaceY;
+  const mouthCenterY = metrics.mouthCenterY;
+
+  if (
+    !Number.isFinite(upperFaceY) ||
+    !Number.isFinite(mouthCenterY) ||
+    upperFaceY <= 0 ||
+    mouthCenterY <= 0 ||
+    mouthCenterY <= upperFaceY
+  ) {
+    return 0;
+  }
+
+  const faceHeight = Math.max(0.001, mouthCenterY - upperFaceY);
+  return (metrics.noseY - upperFaceY) / faceHeight;
+}
+
+export function getHeadMotionMetrics(smoothed, baseline, samples = []) {
+  const headVerticalOffset =
+    getHeadVerticalOffset(smoothed) - (baseline?.headVerticalOffset || 0);
+  const facePitchDelta = getFacePitch(smoothed) - (baseline?.facePitch || 0);
+  const firstSample = samples[0];
+  const lastSample = samples[samples.length - 1];
+  const noseLiftTrend = firstSample && lastSample ? firstSample.noseY - lastSample.noseY : 0;
+  const facePitchTrend =
+    firstSample && lastSample ? getFacePitch(lastSample) - getFacePitch(firstSample) : 0;
+  const shoulderLiftTrend =
+    firstSample && lastSample ? firstSample.shoulderCenterY - lastSample.shoulderCenterY : 0;
+
+  return {
+    headVerticalOffset,
+    headDownDelta: headVerticalOffset,
+    headUpDelta: -headVerticalOffset,
+    facePitchDelta,
+    facePitchDownDelta: facePitchDelta,
+    facePitchUpDelta: -facePitchDelta,
+    facePitchTrend,
+    noseLiftTrend,
+    shoulderLiftTrend,
+  };
+}
+
+export function isHeadUpDetected(
+  smoothed,
+  baseline,
+  samples = [],
+  threshold = MOTION_CONFIG.thresholds.headUp,
+  faceThreshold = MOTION_CONFIG.thresholds.facePitchUp
+) {
+  const { headUpDelta, noseLiftTrend, facePitchUpDelta, facePitchTrend } = getHeadMotionMetrics(
+    smoothed,
+    baseline,
+    samples
+  );
+  return (
+    facePitchUpDelta > faceThreshold ||
+    facePitchTrend < -faceThreshold * 0.7 ||
+    (facePitchUpDelta > faceThreshold * 0.65 && noseLiftTrend > threshold * 0.2) ||
+    headUpDelta > threshold ||
+    noseLiftTrend > threshold * 0.6 ||
+    (headUpDelta > threshold * 0.7 && noseLiftTrend > threshold * 0.35)
+  );
+}
+
+export function getPersonalizedHeadUpThresholds(
+  baseline,
+  defaultThreshold = MOTION_CONFIG.thresholds.headUp,
+  defaultFaceThreshold = MOTION_CONFIG.thresholds.facePitchUp
+) {
+  const headUpDelta = (baseline?.headVerticalOffset || 0) - (baseline?.headUpVerticalOffset || 0);
+  const facePitchUpDelta = (baseline?.facePitch || 0) - (baseline?.headUpFacePitch || 0);
+
+  return {
+    headThreshold: getRelativeThreshold(headUpDelta, defaultThreshold, 0.45, 0.2),
+    faceThreshold: getRelativeThreshold(facePitchUpDelta, defaultFaceThreshold, 0.45, 0.2),
+  };
+}
+
+export function getPersonalizedHeadDownThresholds(
+  baseline,
+  defaultThreshold = MOTION_CONFIG.thresholds.headDown,
+  defaultFaceThreshold = MOTION_CONFIG.thresholds.facePitchDown
+) {
+  const headDownDelta = (baseline?.headDownVerticalOffset || 0) - (baseline?.headVerticalOffset || 0);
+  const facePitchDownDelta = (baseline?.headDownFacePitch || 0) - (baseline?.facePitch || 0);
+
+  return {
+    headThreshold: getRelativeThreshold(headDownDelta, defaultThreshold),
+    faceThreshold: getRelativeThreshold(facePitchDownDelta, defaultFaceThreshold),
+  };
 }
 
 export function isSingleHandRaised(side, metrics, offset) {
@@ -132,6 +251,7 @@ export class CalibrationController {
     this.stepRecognized = false;
     this.samples = [];
     this.baseline = null;
+    this.stepProfiles = {};
   }
 
   getCurrentStep() {
@@ -218,7 +338,9 @@ export class CalibrationController {
         shoulderCenterY: average(shoulders),
         headOffset: average(headOffsets),
         headVerticalOffset: average(this.samples.map((item) => getHeadVerticalOffset(item))),
+        facePitch: average(this.samples.map((item) => getFacePitch(item))),
       };
+      this.stepProfiles = {};
       this.stepRecognized = true;
     } else {
       this.stepRecognized = false;
@@ -241,6 +363,8 @@ export class CalibrationController {
     const smoothed = {
       noseX: average(this.samples.map((item) => item.noseX)),
       noseY: average(this.samples.map((item) => item.noseY)),
+      upperFaceY: average(this.samples.map((item) => item.upperFaceY)),
+      mouthCenterY: average(this.samples.map((item) => item.mouthCenterY)),
       shoulderCenterX: average(this.samples.map((item) => item.shoulderCenterX)),
       hipCenterX: average(this.samples.map((item) => item.hipCenterX)),
       shoulderCenterY: average(this.samples.map((item) => item.shoulderCenterY)),
@@ -264,10 +388,11 @@ export class CalibrationController {
       return;
     }
 
-    const headVerticalOffset =
-      getHeadVerticalOffset(smoothed) - (this.baseline.headVerticalOffset || 0);
-    const headDownDelta = headVerticalOffset;
-    const headUpDelta = -headVerticalOffset;
+    const { headVerticalOffset, headDownDelta, facePitchDownDelta, facePitchTrend } = getHeadMotionMetrics(
+      smoothed,
+      this.baseline,
+      this.samples
+    );
     const shoulderDropDelta = smoothed.shoulderCenterY - this.baseline.shoulderCenterY;
     const firstSample = this.samples[0];
     const lastSample = this.samples[this.samples.length - 1];
@@ -276,18 +401,42 @@ export class CalibrationController {
       firstSample && lastSample ? lastSample.shoulderCenterY - firstSample.shoulderCenterY : 0;
 
     if (step === "headDown") {
+      const facePitchDownThreshold =
+        this.layoutMode === "mobile"
+          ? MOTION_CONFIG.thresholds.facePitchDownMobile
+          : MOTION_CONFIG.thresholds.facePitchDown;
       this.stepRecognized =
+        facePitchDownDelta > facePitchDownThreshold ||
+        facePitchTrend > facePitchDownThreshold * 0.6 ||
         headDownDelta > MOTION_CONFIG.thresholds.headDown ||
         shoulderDropDelta > MOTION_CONFIG.thresholds.headDown * 0.8 ||
         noseDropTrend > MOTION_CONFIG.thresholds.headDown * 0.75 ||
         shoulderDropTrend > MOTION_CONFIG.thresholds.headDown * 0.5 ||
         smoothed.noseY > smoothed.leftShoulderY - 0.01 ||
         smoothed.noseY > smoothed.rightShoulderY - 0.01;
+      if (this.stepRecognized) {
+        this.stepProfiles.headDown = {
+          headVerticalOffset: getHeadVerticalOffset(smoothed),
+          facePitch: getFacePitch(smoothed),
+        };
+      }
       return;
     }
 
     if (step === "headUp") {
-      this.stepRecognized = headUpDelta > MOTION_CONFIG.thresholds.headUp;
+      this.stepRecognized = isHeadUpDetected(
+        smoothed,
+        this.baseline,
+        this.samples,
+        MOTION_CONFIG.thresholds.headUp,
+        MOTION_CONFIG.thresholds.facePitchUp
+      );
+      if (this.stepRecognized) {
+        this.stepProfiles.headUp = {
+          headVerticalOffset: getHeadVerticalOffset(smoothed),
+          facePitch: getFacePitch(smoothed),
+        };
+      }
       return;
     }
 
@@ -306,6 +455,15 @@ export class CalibrationController {
   }
 
   getBaseline() {
-    return this.baseline;
+    if (!this.baseline) return null;
+
+    return {
+      ...this.baseline,
+      headUpVerticalOffset: this.stepProfiles.headUp?.headVerticalOffset ?? this.baseline.headUpVerticalOffset,
+      headUpFacePitch: this.stepProfiles.headUp?.facePitch ?? this.baseline.headUpFacePitch,
+      headDownVerticalOffset:
+        this.stepProfiles.headDown?.headVerticalOffset ?? this.baseline.headDownVerticalOffset,
+      headDownFacePitch: this.stepProfiles.headDown?.facePitch ?? this.baseline.headDownFacePitch,
+    };
   }
 }

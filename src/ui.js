@@ -16,6 +16,8 @@ export class UIController {
       calibrationNextBtn: document.getElementById("calibration-next-btn"),
       calibrationFinishBtn: document.getElementById("calibration-finish-btn"),
       calibrationBackBtn: document.getElementById("calibration-back-btn"),
+      instructionStartBtn: document.getElementById("instruction-start-btn"),
+      instructionBackBtn: document.getElementById("instruction-back-btn"),
       countdownValue: document.getElementById("countdown-value"),
       currentScore: document.getElementById("current-score"),
       currentHighScore: document.getElementById("current-high-score"),

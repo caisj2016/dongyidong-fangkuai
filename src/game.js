@@ -81,6 +81,7 @@ export class TetrisGame {
     if (action === "left") this.tryMove(-1);
     if (action === "right") this.tryMove(1);
     if (action === "rotate") this.tryRotate();
+    if (action === "down") this.stepDrop();
   }
 
   handleKeyboard(key, isPressed) {
@@ -117,9 +118,7 @@ export class TetrisGame {
       return;
     }
 
-    const interval = this.softDrop
-      ? this.config.softDropInterval
-      : this.config.normalDropInterval;
+    const interval = this.softDrop ? this.config.softDropInterval : this.config.baseDropInterval;
 
     if (timestamp - this.lastDropAt >= interval) {
       this.dropPiece();
@@ -165,6 +164,11 @@ export class TetrisGame {
       this.spawnNextPiece();
       this.softDrop = false;
     }
+  }
+
+  stepDrop() {
+    this.dropPiece();
+    this.lastDropAt = this.lastTimestamp || performance.now();
   }
 
   spawnNextPiece() {
