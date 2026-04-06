@@ -1,7 +1,6 @@
 import { MOTION_CONFIG } from "./config.js";
 import {
   getFacePitch,
-  getHeadMotionMetrics,
   getHeadOffset,
   getHeadVerticalOffset,
   getLeanDelta,
@@ -10,6 +9,8 @@ import {
   getPoseMetrics,
   isHeadUpDetected,
 } from "./calibration.js";
+
+const DEFAULT_ACTION_LABEL = "无动作";
 
 function average(values) {
   if (!values.length) return 0;
@@ -30,14 +31,14 @@ export class MotionMapper {
   reset() {
     this.baseline = null;
     this.history = [];
-    this.currentAction = "无动作";
+    this.currentAction = DEFAULT_ACTION_LABEL;
     this.resetMotionState();
   }
 
   setBaseline(baseline) {
     this.baseline = baseline;
     this.history = [];
-    this.currentAction = "无动作";
+    this.currentAction = DEFAULT_ACTION_LABEL;
     this.resetMotionState();
   }
 
@@ -63,14 +64,14 @@ export class MotionMapper {
 
   update(landmarks, now = performance.now()) {
     if (!this.baseline) {
-      this.currentAction = "无动作";
+      this.currentAction = DEFAULT_ACTION_LABEL;
       return { action: null, softDrop: false, currentAction: this.currentAction };
     }
 
     const metrics = getPoseMetrics(landmarks);
     if (!metrics) {
       this.history = [];
-      this.currentAction = "无动作";
+      this.currentAction = DEFAULT_ACTION_LABEL;
       this.resetMotionState();
       return { action: null, softDrop: false, currentAction: this.currentAction };
     }
@@ -102,7 +103,7 @@ export class MotionMapper {
       this.getRotateAction(smoothed, now) ||
       this.getDropAction(smoothed, now);
 
-    this.currentAction = this.describeAction(action, smoothed);
+    this.currentAction = this.describeAction(action);
 
     return {
       action,
@@ -209,15 +210,7 @@ export class MotionMapper {
     }
 
     if (!this.rotateActive) {
-      if (!this.rotateHoldStartedAt) {
-        this.rotateHoldStartedAt = now;
-        return null;
-      }
-
-      if (now - this.rotateHoldStartedAt < this.config.holds.rotate) {
-        return null;
-      }
-
+      this.rotateHoldStartedAt = now;
       this.rotateActive = true;
       this.rotateNextRepeatAt = now + rotateInitialDelay;
       this.rotateLockedUntil = now + this.config.lockDelays.rotate;
@@ -275,61 +268,8 @@ export class MotionMapper {
     return null;
   }
 
-  describeAction(action, smoothed) {
-    if (action) {
-      return this.label(action);
-    }
-
-    const lateralOffset = getHeadOffset(smoothed) - (this.baseline.headOffset || 0);
-    const lean = getLeanDelta(smoothed);
-    const { headVerticalOffset, facePitchDownDelta } = getHeadMotionMetrics(
-      smoothed,
-      this.baseline,
-      this.history
-    );
-    const isMobile = this.layoutMode === "mobile";
-    const personalizedDownThresholds = getPersonalizedHeadDownThresholds(
-      this.baseline,
-      isMobile ? this.config.thresholds.headDownMobile : this.config.thresholds.headDown,
-      isMobile ? this.config.thresholds.facePitchDownMobile : this.config.thresholds.facePitchDown
-    );
-    const personalizedUpThresholds = getPersonalizedHeadUpThresholds(
-      this.baseline,
-      this.config.thresholds.headUp,
-      this.config.thresholds.facePitchUp
-    );
-    const headDownThreshold = personalizedDownThresholds.headThreshold;
-    const facePitchDownThreshold = personalizedDownThresholds.faceThreshold;
-
-    if (Math.abs(lean) >= this.config.thresholds.rearmThreshold) {
-      if (lateralOffset > this.config.thresholds.headOffset) {
-        return "向右偏头";
-      }
-      if (lateralOffset < -this.config.thresholds.headOffset) {
-        return "向左偏头";
-      }
-    }
-
-    if (
-      isHeadUpDetected(
-        smoothed,
-        this.baseline,
-        this.history,
-        personalizedUpThresholds.headThreshold,
-        personalizedUpThresholds.faceThreshold
-      )
-    ) {
-      return "抬头蓄力";
-    }
-
-    if (
-      facePitchDownDelta > facePitchDownThreshold &&
-      headVerticalOffset > headDownThreshold
-    ) {
-      return "低头蓄力";
-    }
-
-    return "无动作";
+  describeAction(action) {
+    return action ? this.label(action) : DEFAULT_ACTION_LABEL;
   }
 
   label(action) {
@@ -338,6 +278,6 @@ export class MotionMapper {
       right: "右移",
       rotate: "旋转",
       down: "下移",
-    }[action] || "无动作";
+    }[action] || DEFAULT_ACTION_LABEL;
   }
 }
